@@ -118,3 +118,16 @@ export function fetchSummary(start: string, end: string): Promise<DashboardData>
 export function fetchProjectSkus(projectId: string, start: string, end: string): Promise<ProjectSkuData> {
   return get<ProjectSkuData>(`/api/project/${encodeURIComponent(projectId)}/skus?start=${start}&end=${end}`)
 }
+
+export interface ChargebackRow {
+  team:          string
+  total:         number
+  lastMonthCost: number | null
+  momPct:        number | null
+  projects:      string
+  projectCount:  number
+}
+
+export function fetchChargeback(start: string, end: string): Promise<ChargebackRow[]> {
+  return get<ChargebackRow[]>(`/api/chargeback?start=${start}&end=${end}`)
+}

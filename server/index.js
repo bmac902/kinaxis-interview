@@ -86,6 +86,23 @@ app.get('/api/project/:projectId/skus', async (req, res) => {
   }
 })
 
+app.get('/api/chargeback', async (req, res) => {
+  const def = defaultRange()
+  const start = req.query.start || def.start
+  const end   = req.query.end   || def.end
+
+  try {
+    const data = USE_BQ
+      ? await bqQueries.getChargeback(bq, VIEW, start, end)
+      : mock.getChargeback(start, end)
+    res.json(data)
+  } catch (err) {
+    console.error('/api/chargeback error:', err.message)
+    try { res.json(mock.getChargeback(start, end)) }
+    catch (e) { res.status(500).json({ error: err.message }) }
+  }
+})
+
 app.listen(PORT, () => {
   console.log(`🚀  FinOps server on http://localhost:${PORT}`)
 })

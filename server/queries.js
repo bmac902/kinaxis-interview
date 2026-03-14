@@ -278,4 +278,63 @@ async function getProjectSkus(bq, view, projectId, startMonth, endMonth) {
   }
 }
 
-module.exports = { getSummary, getProjectSkus, getAvailableMonths }
+async function getChargeback(bq, view, startMonth, endMonth) {
+  const [rows] = await bq.query({
+    query: `
+      SELECT
+        COALESCE(
+          (SELECT JSON_VALUE(l, '$.value')
+           FROM UNNEST(JSON_QUERY_ARRAY(COALESCE(Tags, '[]'))) AS l
+           WHERE JSON_VALUE(l, '$.key') = 'team'
+           LIMIT 1),
+          '— untagged —'
+        ) AS team,
+        InvoiceMonth,
+        ROUND(SUM(BilledCost), 2) AS cost,
+        COUNT(DISTINCT SubAccountId) AS projectCount,
+        STRING_AGG(DISTINCT SubAccountId ORDER BY SubAccountId LIMIT 5) AS projects
+      FROM ${view}
+      WHERE InvoiceMonth >= @startMonth AND InvoiceMonth <= @endMonth
+      GROUP BY team, InvoiceMonth
+      ORDER BY team, InvoiceMonth
+    `,
+    params: { startMonth: toIntMonth(startMonth), endMonth: toIntMonth(endMonth) },
+  })
+
+  // Pivot: team → { total, byMonth: { [month]: cost }, projects }
+  const teamMap = {}
+  for (const row of rows) {
+    const team = row.team
+    const month = String(row.InvoiceMonth)
+    if (!teamMap[team]) teamMap[team] = { team, byMonth: {}, total: 0, projects: row.projects || '' }
+    const cost = Number(row.cost)
+    teamMap[team].byMonth[month] = cost
+    teamMap[team].total += cost
+    if (row.projects) teamMap[team].projects = row.projects
+  }
+
+  // Compute MoM from last two distinct months in range
+  const allMonths = [...new Set(rows.map(r => String(r.InvoiceMonth)))].sort()
+  const prevMonth = allMonths.length >= 2 ? allMonths[allMonths.length - 2] : null
+  const lastMonth = allMonths.length >= 1 ? allMonths[allMonths.length - 1] : null
+
+  return Object.values(teamMap)
+    .map(t => {
+      const prev = prevMonth ? (t.byMonth[prevMonth] || 0) : null
+      const last = lastMonth ? (t.byMonth[lastMonth] || 0) : null
+      const momPct = (prev && last && prev > 0)
+        ? +((last - prev) / prev * 100).toFixed(1)
+        : null
+      return {
+        team:         t.team,
+        total:        Math.round(t.total),
+        lastMonthCost: last ? Math.round(last) : null,
+        momPct,
+        projects:     t.projects,
+        projectCount: Object.keys(t.byMonth).length > 0 ? (t.projects.split(',').length) : 0,
+      }
+    })
+    .sort((a, b) => b.total - a.total)
+}
+
+module.exports = { getSummary, getProjectSkus, getAvailableMonths, getChargeback }

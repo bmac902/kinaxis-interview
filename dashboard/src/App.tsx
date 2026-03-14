@@ -10,6 +10,9 @@ import UntaggedSpend from './components/UntaggedSpend'
 import MoMTrend from './components/MoMTrend'
 import DrillDownModal from './components/DrillDownModal'
 import ExportButtons from './components/ExportButtons'
+import SavingsSummaryPanel from './components/SavingsSummaryPanel'
+import ChargebackTable from './components/ChargebackTable'
+import AnomalyBanner from './components/AnomalyBanner'
 
 const fmt = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M`
@@ -224,6 +227,8 @@ export default function App() {
           </>
         ) : data ? (
           <>
+            <AnomalyBanner data={data.monthlyCostByService} />
+
             <MonthlyCostByService data={data.monthlyCostByService} />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
@@ -240,6 +245,10 @@ export default function App() {
             </div>
 
             <UntaggedSpend data={data.untaggedSpend} />
+
+            <SavingsSummaryPanel data={data} />
+
+            <ChargebackTable startMonth={startMonth} endMonth={endMonth} />
           </>
         ) : null}
 

@@ -277,4 +277,40 @@ function getProjectSkus(projectId, startMonth, endMonth) {
   }
 }
 
-module.exports = { getSummary, getProjectSkus, getAvailableMonths }
+function getChargeback(startMonth, endMonth) {
+  const activeLabels = filterByRange(startMonth, endMonth)
+  const scale = activeLabels.length / 3
+
+  const raw = [
+    { team: 'platform-engineering', projects: 'maestro-platform-prod,maestro-platform-dev', dec: 339900, jan: 367000, feb: 312800 },
+    { team: 'supply-chain',         projects: 'supply-chain-api-prod',                      dec: 193500, jan: 209000, feb: 182627 },
+    { team: 'devops',               projects: 'devops-tooling',                              dec: 189000, jan: 204000, feb: 179367 },
+    { team: 'product',              projects: 'customer-portal-prod',                        dec: 185400, jan: 200000, feb: 176799 },
+    { team: 'data-analytics',       projects: 'data-analytics-prod',                        dec:  85700, jan:  92500, feb:  82842 },
+    { team: 'ml-platform',          projects: 'ml-training-prod,ml-inference-prod',         dec:  104500, jan: 112800, feb: 100036 },
+    { team: '— untagged —',         projects: 'shared-services,legacy-migration-proj',      dec: 208200, jan: 225000, feb: 200486 },
+  ]
+
+  const months = filterByRange(startMonth, endMonth)
+  const monthMap = { "Dec '24": 'dec', "Jan '25": 'jan', "Feb '25": 'feb' }
+
+  return raw.map(r => {
+    const costs = activeLabels.map(l => (r[monthMap[l]] || 0) * scale)
+    const total = Math.round(costs.reduce((s, v) => s + v, 0))
+    const last  = costs.length ? Math.round(costs[costs.length - 1]) : null
+    const prev  = costs.length >= 2 ? Math.round(costs[costs.length - 2]) : null
+    const momPct = (prev && last && prev > 0)
+      ? +((last - prev) / prev * 100).toFixed(1)
+      : null
+    return {
+      team:          r.team,
+      total,
+      lastMonthCost: last,
+      momPct,
+      projects:      r.projects,
+      projectCount:  r.projects.split(',').length,
+    }
+  }).sort((a, b) => b.total - a.total)
+}
+
+module.exports = { getSummary, getProjectSkus, getAvailableMonths, getChargeback }
