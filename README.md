@@ -7,17 +7,17 @@
 
 ## The story
 
-**Friday night, 9:30 PM.**
-Found out the thinnest part of my cloud knowledge was GCP. Instead of noting it and moving on, I opened the docs. By midnight I was watching Databricks cost videos and reading the FOCUS 1.0 BigQuery spec. Not because anyone told me to. Because I couldn't stop.
+GCP has always been my thinnest cloud. I know that. So when a FinOps role at Kinaxis came up, I decided to close the gap properly — not by reading about it, but by building something real on it.
 
-**Saturday morning, coffee in hand.**
-Opened a GCP account from scratch. First command — hit a real error. BigQuery doesn't allow dots in column names. `service.id` rejected. Debugged it, fixed it, reloaded. Clean.
-
-Created the FOCUS 1.0 view. Hit a JSON parsing error on the credits column — `JSON_EXTRACT_ARRAY` doesn't work on autodetected STRING columns in BigQuery. Debugged it live in the console. Fixed it.
+I got a GCP account, loaded synthetic billing data into BigQuery, and implemented the FOCUS 1.0 spec from scratch. Hit real errors along the way: BigQuery rejecting dots in column names, `JSON_EXTRACT_ARRAY` failing on autodetected STRING columns. Debugged them live, fixed them, moved on.
 
 Ran the CUD query. Saw 0% coverage everywhere. Recognised it immediately as the story — not a bug, a finding.
 
-**Then I built.**
+**Then I built the dashboard — with Claude Code as my pair programmer.**
+
+I used this project as a test of AI-assisted development. The entire stack — live BigQuery integration, React Query, drill-down modal, chargeback table, savings panel, anomaly detection — was built in a single Saturday session. Every architectural decision was mine. Claude wrote code I reviewed and directed. The result is what you see here.
+
+That's the actual workflow I'd bring to Kinaxis: move fast with AI tooling, stay rigorous about what ships.
 
 In three hours, starting from a working BigQuery dataset:
 
@@ -135,4 +135,4 @@ Total opportunity surfaced in one dashboard: **$1.69M annualised.**
 
 ---
 
-*Built with [Claude Code](https://claude.ai/claude-code) · FOCUS 1.0 · GCP BigQuery · React · TypeScript*
+*Built in one Saturday session using [Claude Code](https://claude.ai/claude-code) as AI pair programmer · FOCUS 1.0 · GCP BigQuery · React · TypeScript*
