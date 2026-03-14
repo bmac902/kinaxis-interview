@@ -8,7 +8,7 @@
 --   BigQuery project and dataset name.
 -- ============================================================
 
-CREATE OR REPLACE VIEW `project-a7695799-3ff7-436e-978.gcp_finops_poc.focus_v1` AS
+CREATE OR REPLACE VIEW `YOUR_GCP_PROJECT_ID.gcp_finops_poc.focus_v1` AS
 
 WITH billing AS (
   SELECT
@@ -17,7 +17,7 @@ WITH billing AS (
     JSON_QUERY_ARRAY(credits) AS credits_array,
     -- Parse labels JSON array
     JSON_QUERY_ARRAY(labels)  AS labels_array
-  FROM `project-a7695799-3ff7-436e-978.gcp_finops_poc.gcp_billing_export`
+  FROM `YOUR_GCP_PROJECT_ID.gcp_finops_poc.gcp_billing_export`
 ),
 
 credits_unnested AS (
@@ -155,6 +155,6 @@ FROM credits_unnested;
 --   SUM(ListCost)       AS list_cost,
 --   SUM(CUD_Credits)    AS cud_savings,
 --   SUM(SUD_Credits)    AS sud_savings
--- FROM `project-a7695799-3ff7-436e-978.gcp_finops_poc.focus_v1`
+-- FROM `YOUR_GCP_PROJECT_ID.gcp_finops_poc.focus_v1`
 -- GROUP BY 1, 2, 3
 -- ORDER BY 1, 4 DESC;

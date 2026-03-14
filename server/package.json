@@ -1,0 +1,16 @@
+{
+  "name": "finops-server",
+  "version": "1.0.0",
+  "description": "Express proxy for BigQuery FOCUS dashboard",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --watch index.js"
+  },
+  "dependencies": {
+    "@google-cloud/bigquery": "^7.3.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2"
+  }
+}

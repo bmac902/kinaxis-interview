@@ -8,6 +8,13 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
 }
 
+/* Print / PDF styles */
+@media print {
+  body { background-color: #0f172a !important; color: #f1f5f9 !important; }
+  .print\:hidden { display: none !important; }
+  @page { margin: 1cm; size: A4 landscape; }
+}
+
 /* Recharts tooltip dark override */
 .recharts-tooltip-wrapper .recharts-default-tooltip {
   background-color: #1e293b !important;

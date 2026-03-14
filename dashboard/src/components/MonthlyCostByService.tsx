@@ -2,7 +2,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from 'recharts'
-import { monthlyCostByService, SERVICES, SERVICE_COLORS } from '../data/mockData'
+import { SERVICE_COLORS, SERVICES } from '../data/mockData'
+import type { MonthlyCostRow } from '../lib/api'
 
 const fmt = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M`
@@ -29,7 +30,18 @@ const CustomTooltip = ({ active, payload, label }: any) => {
   )
 }
 
-export default function MonthlyCostByService() {
+interface Props {
+  data: MonthlyCostRow[]
+}
+
+export default function MonthlyCostByService({ data }: Props) {
+  const momBadge = (() => {
+    if (data.length < 2) return null
+    const totals = data.map(m => SERVICES.reduce((s, svc) => s + ((m[svc] as number) || 0), 0))
+    const pct = ((totals[totals.length - 1] - totals[totals.length - 2]) / totals[totals.length - 2] * 100).toFixed(1)
+    return `${Number(pct) >= 0 ? '+' : ''}${pct}% MoM growth`
+  })()
+
   return (
     <div className="bg-slate-900 border border-slate-700/50 rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
@@ -37,12 +49,12 @@ export default function MonthlyCostByService() {
           <h2 className="text-sm font-semibold text-slate-100">Monthly Cost by Service</h2>
           <p className="text-xs text-slate-500 mt-0.5">FOCUS 1.0 · ServiceName · BilledCost</p>
         </div>
-        <span className="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded">
-          +8% MoM growth
-        </span>
+        {momBadge && (
+          <span className="text-xs text-slate-400 bg-slate-800 px-2 py-1 rounded">{momBadge}</span>
+        )}
       </div>
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={monthlyCostByService} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
+        <BarChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" vertical={false} />
           <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
           <YAxis tickFormatter={fmt} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={62} />

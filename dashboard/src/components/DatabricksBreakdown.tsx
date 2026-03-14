@@ -2,7 +2,7 @@ import {
   PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts'
-import { databricksByTier, databricksByProject } from '../data/mockData'
+import type { DatabricksTierRow, DatabricksProjectRow } from '../lib/api'
 
 const fmt = (v: number) => `$${(v / 1_000).toFixed(0)}K`
 const TIERS = ['All-Purpose Compute', 'Jobs Compute', 'SQL Compute', 'DLT Core']
@@ -64,15 +64,21 @@ const renderCustomLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, pct }: 
   )
 }
 
-export default function DatabricksBreakdown() {
-  const totalCost = databricksByTier.reduce((s, d) => s + d.cost, 0)
+interface Props {
+  tiers:     DatabricksTierRow[]
+  byProject: DatabricksProjectRow[]
+}
+
+export default function DatabricksBreakdown({ tiers, byProject }: Props) {
+  const totalCost = tiers.reduce((s, d) => s + d.cost, 0)
+  const allPurposePct = tiers.find(t => t.tier === 'All-Purpose Compute')?.pct ?? 0
 
   return (
     <div className="bg-slate-900 border border-slate-700/50 rounded-xl p-5">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-100">Databricks DBU Breakdown</h2>
-          <p className="text-xs text-slate-500 mt-0.5">3-month total · by workload type</p>
+          <p className="text-xs text-slate-500 mt-0.5">Total spend · by workload type</p>
         </div>
         <span className="text-xs font-mono text-slate-300 bg-slate-800 px-2 py-1 rounded">
           {fmt(totalCost)} total
@@ -80,12 +86,11 @@ export default function DatabricksBreakdown() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {/* Pie chart */}
         <div>
           <ResponsiveContainer width="100%" height={180}>
             <PieChart>
               <Pie
-                data={databricksByTier}
+                data={tiers}
                 dataKey="cost"
                 nameKey="tier"
                 cx="50%"
@@ -95,7 +100,7 @@ export default function DatabricksBreakdown() {
                 labelLine={false}
                 label={renderCustomLabel}
               >
-                {databricksByTier.map((d) => (
+                {tiers.map((d) => (
                   <Cell key={d.tier} fill={d.color} stroke="transparent" />
                 ))}
               </Pie>
@@ -103,7 +108,7 @@ export default function DatabricksBreakdown() {
             </PieChart>
           </ResponsiveContainer>
           <div className="space-y-1.5 mt-1">
-            {databricksByTier.map(d => (
+            {tiers.map(d => (
               <div key={d.tier} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-1.5">
                   <div className="w-2 h-2 rounded-sm flex-shrink-0" style={{ backgroundColor: d.color }} />
@@ -115,12 +120,11 @@ export default function DatabricksBreakdown() {
           </div>
         </div>
 
-        {/* Stacked bar by project */}
         <div>
           <p className="text-xs text-slate-500 mb-2">by project</p>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart
-              data={databricksByProject.map(d => ({ ...d, project: PROJECT_LABELS[d.project] || d.project }))}
+              data={byProject.map(d => ({ ...d, project: PROJECT_LABELS[d.project as string] || d.project }))}
               layout="vertical"
               margin={{ top: 0, right: 8, bottom: 0, left: 0 }}
               barSize={14}
@@ -138,11 +142,13 @@ export default function DatabricksBreakdown() {
         </div>
       </div>
 
-      <div className="mt-3 bg-red-950/30 border border-red-800/30 rounded-lg px-3 py-2">
-        <p className="text-xs text-red-300">
-          <span className="font-semibold">All-Purpose at 48.8%</span> of Databricks spend — consider migrating interactive workloads to Jobs Compute (73% cheaper rate).
-        </p>
-      </div>
+      {allPurposePct >= 40 && (
+        <div className="mt-3 bg-red-950/30 border border-red-800/30 rounded-lg px-3 py-2">
+          <p className="text-xs text-red-300">
+            <span className="font-semibold">All-Purpose at {allPurposePct}%</span> of Databricks spend — consider migrating interactive workloads to Jobs Compute (73% cheaper rate).
+          </p>
+        </div>
+      )}
     </div>
   )
 }

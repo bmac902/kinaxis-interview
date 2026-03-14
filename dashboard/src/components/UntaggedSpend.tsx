@@ -1,7 +1,7 @@
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts'
-import { untaggedSpend } from '../data/mockData'
+import type { UntaggedSpendRow } from '../lib/api'
 
 const fmtK = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : `$${(v / 1_000).toFixed(0)}K`
@@ -33,8 +33,12 @@ const CustomTooltip = ({ active, payload }: any) => {
   )
 }
 
-export default function UntaggedSpend() {
-  const sorted = [...untaggedSpend].sort((a, b) => b.untagged - a.untagged)
+interface Props {
+  data: UntaggedSpendRow[]
+}
+
+export default function UntaggedSpend({ data }: Props) {
+  const sorted = [...data].sort((a, b) => b.untagged - a.untagged)
   const totalUntagged = sorted.reduce((s, d) => s + d.untagged, 0)
 
   return (
@@ -42,7 +46,7 @@ export default function UntaggedSpend() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h2 className="text-sm font-semibold text-slate-100">Untagged Spend by Project</h2>
-          <p className="text-xs text-slate-500 mt-0.5">3-month total · rows missing team label · tagging governance gap</p>
+          <p className="text-xs text-slate-500 mt-0.5">Rows missing team label · tagging governance gap</p>
         </div>
         <div className="text-right">
           <p className="text-sm font-mono font-semibold text-red-400">{fmtK(totalUntagged)}</p>
@@ -59,7 +63,7 @@ export default function UntaggedSpend() {
             width={112}
             tick={({ x, y, payload }) => {
               const label = LABEL_MAP[payload.value] || payload.value
-              const isFullyUntagged = untaggedSpend.find(d => d.project === payload.value)?.pct === 100
+              const isFullyUntagged = data.find(d => d.project === payload.value)?.pct === 100
               return (
                 <text x={x} y={y} dy={4} textAnchor="end" fontSize={10}
                   fill={isFullyUntagged ? '#f87171' : '#94a3b8'}>

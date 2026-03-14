@@ -1,20 +1,26 @@
-import { kpis } from './data/mockData'
+import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { fetchSummary, fetchMonths } from './lib/api'
+import type { DashboardData, MonthOption } from './lib/api'
 import MonthlyCostByService from './components/MonthlyCostByService'
 import CostByProject from './components/CostByProject'
 import CUDCoverage from './components/CUDCoverage'
 import DatabricksBreakdown from './components/DatabricksBreakdown'
 import UntaggedSpend from './components/UntaggedSpend'
 import MoMTrend from './components/MoMTrend'
+import DrillDownModal from './components/DrillDownModal'
+import ExportButtons from './components/ExportButtons'
 
 const fmt = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M`
   : v >= 1_000   ? `$${(v / 1_000).toFixed(0)}K`
   : `$${v}`
 
+// ── KPI Card ──────────────────────────────────────────────────────────────────
 interface KPICardProps {
-  label: string
-  value: string
-  sub?: string
+  label:  string
+  value:  string
+  sub?:   string
   accent?: 'default' | 'red' | 'amber' | 'emerald'
   badge?: string
 }
@@ -32,8 +38,8 @@ function KPICard({ label, value, sub, accent = 'default', badge }: KPICardProps)
         <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">{label}</p>
         {badge && (
           <span className={`text-xs px-1.5 py-0.5 rounded font-medium
-            ${accent === 'red' ? 'bg-red-950/60 text-red-400'
-            : accent === 'amber' ? 'bg-amber-950/60 text-amber-400'
+            ${accent === 'red'     ? 'bg-red-950/60 text-red-400'
+            : accent === 'amber'   ? 'bg-amber-950/60 text-amber-400'
             : accent === 'emerald' ? 'bg-emerald-950/60 text-emerald-400'
             : 'bg-slate-800 text-slate-400'}`}>
             {badge}
@@ -46,12 +52,82 @@ function KPICard({ label, value, sub, accent = 'default', badge }: KPICardProps)
   )
 }
 
+// ── Date Range Picker ─────────────────────────────────────────────────────────
+interface DateRangePickerProps {
+  months:     MonthOption[]
+  startMonth: string
+  endMonth:   string
+  onChange:   (start: string, end: string) => void
+}
+
+function DateRangePicker({ months, startMonth, endMonth, onChange }: DateRangePickerProps) {
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <span className="text-slate-500">From</span>
+      <select
+        value={startMonth}
+        onChange={e => onChange(e.target.value, endMonth)}
+        className="bg-slate-800 border border-slate-700 text-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"
+      >
+        {months.map(m => (
+          <option key={m.value} value={m.value} disabled={m.value > endMonth}>{m.label}</option>
+        ))}
+      </select>
+      <span className="text-slate-500">to</span>
+      <select
+        value={endMonth}
+        onChange={e => onChange(startMonth, e.target.value)}
+        className="bg-slate-800 border border-slate-700 text-slate-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-blue-500"
+      >
+        {months.map(m => (
+          <option key={m.value} value={m.value} disabled={m.value < startMonth}>{m.label}</option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
+// ── Skeleton ──────────────────────────────────────────────────────────────────
+function Skeleton({ className }: { className?: string }) {
+  return <div className={`animate-pulse bg-slate-800 rounded-xl ${className}`} />
+}
+
+// ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
+  const [startMonth, setStartMonth] = useState('2024-12')
+  const [endMonth,   setEndMonth]   = useState('2025-02')
+  const [drillProject, setDrillProject] = useState<string | null>(null)
+
+  const handleDateChange = (start: string, end: string) => {
+    if (start <= end) { setStartMonth(start); setEndMonth(end) }
+  }
+
+  // Fetch available months (for picker)
+  const { data: months = [] } = useQuery<MonthOption[]>({
+    queryKey: ['months'],
+    queryFn:  fetchMonths,
+    staleTime: Infinity,
+  })
+
+  // Fetch dashboard summary
+  const { data, isLoading, isError, error } = useQuery<DashboardData>({
+    queryKey: ['summary', startMonth, endMonth],
+    queryFn:  () => fetchSummary(startMonth, endMonth),
+    staleTime: 5 * 60_000,
+    retry: 1,
+  })
+
+  const dateRangeLabel = months.length
+    ? `${months.find(m => m.value === startMonth)?.label ?? startMonth} – ${months.find(m => m.value === endMonth)?.label ?? endMonth}`
+    : `${startMonth} – ${endMonth}`
+
+  const isLive = data?.kpis.dataSource.startsWith('BigQuery —') && !data.kpis.dataSource.includes('mock')
+
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
       {/* Header */}
-      <div className="border-b border-slate-800 px-6 py-4">
-        <div className="max-w-[1600px] mx-auto flex items-center justify-between">
+      <div className="border-b border-slate-800 px-6 py-4 print:hidden">
+        <div className="max-w-[1600px] mx-auto flex items-center justify-between gap-4 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="w-7 h-7 rounded-lg bg-blue-500/20 border border-blue-500/40 flex items-center justify-center">
               <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -61,79 +137,129 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-sm font-semibold text-slate-100">GCP FinOps Dashboard</h1>
-              <p className="text-xs text-slate-500">Kinaxis SaaS POC · Dec 2024 – Feb 2025</p>
+              <p className="text-xs text-slate-500">Kinaxis SaaS POC · FOCUS 1.0</p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Controls */}
+          <div className="flex items-center gap-3 flex-wrap">
+            {months.length > 0 && (
+              <DateRangePicker
+                months={months}
+                startMonth={startMonth}
+                endMonth={endMonth}
+                onChange={handleDateChange}
+              />
+            )}
             <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500">
-              <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              Live data · BigQuery
+              <div className={`w-1.5 h-1.5 rounded-full ${isLive ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+              {isLive ? 'Live · BigQuery' : 'Demo data'}
             </div>
             <span className="text-xs bg-blue-500/10 border border-blue-500/30 text-blue-400 px-2 py-1 rounded font-medium">
               FOCUS 1.0
             </span>
-            <span className="text-xs bg-slate-800 text-slate-400 px-2 py-1 rounded">
-              {kpis.projects} projects · {kpis.months} months
-            </span>
+            {data && <ExportButtons data={data} dateRange={dateRangeLabel} />}
           </div>
         </div>
       </div>
 
       <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-5">
+        {/* Error banner */}
+        {isError && (
+          <div className="bg-red-950/40 border border-red-700/40 rounded-xl px-4 py-3 text-sm text-red-300">
+            Failed to load dashboard data. Is the server running?{' '}
+            <code className="text-xs text-red-400">{(error as Error)?.message}</code>
+          </div>
+        )}
+
         {/* KPI Row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPICard
-            label="Total Spend (3 mo)"
-            value={fmt(kpis.totalSpend)}
-            sub={`${kpis.projects} projects · ${kpis.dataSource}`}
-          />
-          <KPICard
-            label="MoM Growth"
-            value={`+${kpis.momGrowthPct}%`}
-            sub="Consistent 8% month-over-month. Tracks ~18% ARR growth."
-            accent="emerald"
-            badge="on target"
-          />
-          <KPICard
-            label="Untagged Spend"
-            value={fmt(kpis.untaggedSpend)}
-            sub={`${kpis.untaggedPct}% of total · no team attribution`}
-            accent="red"
-            badge="governance gap"
-          />
-          <KPICard
-            label="CUD Opportunity"
-            value={fmt(kpis.cudOpportunityAnnual)}
-            sub="Annualised 1-yr CUD savings (20%). No CUDs purchased today."
-            accent="amber"
-            badge="0% coverage"
-          />
-        </div>
+        {isLoading ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
+          </div>
+        ) : data ? (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <KPICard
+              label={`Total Spend (${data.kpis.months} mo)`}
+              value={fmt(data.kpis.totalSpend)}
+              sub={`${data.kpis.projects} projects · ${data.kpis.dataSource}`}
+            />
+            <KPICard
+              label="MoM Growth"
+              value={`${data.kpis.momGrowthPct >= 0 ? '+' : ''}${data.kpis.momGrowthPct}%`}
+              sub="Month-over-month. Tracks ~18% ARR growth."
+              accent="emerald"
+              badge="on target"
+            />
+            <KPICard
+              label="Untagged Spend"
+              value={fmt(data.kpis.untaggedSpend)}
+              sub={`${data.kpis.untaggedPct}% of total · no team attribution`}
+              accent="red"
+              badge="governance gap"
+            />
+            <KPICard
+              label="CUD Opportunity"
+              value={fmt(data.kpis.cudOpportunityAnnual)}
+              sub="Annualised 1-yr CUD savings (20%). No CUDs purchased today."
+              accent="amber"
+              badge="0% coverage"
+            />
+          </div>
+        ) : null}
 
-        {/* Full-width: Monthly cost by service */}
-        <MonthlyCostByService />
+        {/* Charts */}
+        {isLoading ? (
+          <>
+            <Skeleton className="h-80" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <Skeleton className="h-80" />
+              <Skeleton className="h-80" />
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <Skeleton className="h-72" />
+              <Skeleton className="h-72" />
+            </div>
+            <Skeleton className="h-72" />
+          </>
+        ) : data ? (
+          <>
+            <MonthlyCostByService data={data.monthlyCostByService} />
 
-        {/* Row: Cost by project + MoM Trend */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <CostByProject />
-          <MoMTrend />
-        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <CostByProject
+                data={data.costByProject}
+                onProjectClick={setDrillProject}
+              />
+              <MoMTrend data={data.momTrend} />
+            </div>
 
-        {/* Row: CUD Coverage + Databricks */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-          <CUDCoverage />
-          <DatabricksBreakdown />
-        </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+              <CUDCoverage data={data.cudCoverage} summary={data.cudSummary} />
+              <DatabricksBreakdown tiers={data.databricksByTier} byProject={data.databricksByProject} />
+            </div>
 
-        {/* Full-width: Untagged spend */}
-        <UntaggedSpend />
+            <UntaggedSpend data={data.untaggedSpend} />
+          </>
+        ) : null}
 
         {/* Footer */}
-        <div className="border-t border-slate-800 pt-4 flex items-center justify-between text-xs text-slate-600">
-          <span>Data source: <code className="text-slate-500">gcp_finops_poc.focus_v1</code> · FOCUS 1.0 schema · JSON pre-baked for demo</span>
+        <div className="border-t border-slate-800 pt-4 flex items-center justify-between text-xs text-slate-600 print:hidden">
+          <span>
+            Data source: <code className="text-slate-500">gcp_finops_poc.focus_v1</code> · FOCUS 1.0 schema
+            {data && ` · ${dateRangeLabel}`}
+          </span>
           <span>Kinaxis FinOps POC · {new Date().toLocaleDateString('en-CA')}</span>
         </div>
       </div>
+
+      {/* Drill-down modal */}
+      <DrillDownModal
+        project={drillProject}
+        startMonth={startMonth}
+        endMonth={endMonth}
+        onClose={() => setDrillProject(null)}
+      />
     </div>
   )
 }

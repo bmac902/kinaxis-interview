@@ -2,7 +2,7 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from 'recharts'
-import { momTrend } from '../data/mockData'
+import type { MoMTrendRow } from '../lib/api'
 
 const fmtK = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M` : `$${(v / 1_000).toFixed(0)}K`
@@ -28,16 +28,27 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 }
 
 const lines = [
-  { key: 'total',      color: '#f1f5f9', strokeWidth: 2.5, dashed: false },
-  { key: 'compute',    color: '#60a5fa', strokeWidth: 1.5, dashed: false },
-  { key: 'storage',    color: '#a78bfa', strokeWidth: 1.5, dashed: false },
-  { key: 'analytics',  color: '#fbbf24', strokeWidth: 1.5, dashed: false },
-  { key: 'databricks', color: '#f87171', strokeWidth: 1.5, dashed: false },
-  { key: 'ai',         color: '#34d399', strokeWidth: 1.5, dashed: false },
+  { key: 'total',      color: '#f1f5f9', strokeWidth: 2.5 },
+  { key: 'compute',    color: '#60a5fa', strokeWidth: 1.5 },
+  { key: 'storage',    color: '#a78bfa', strokeWidth: 1.5 },
+  { key: 'analytics',  color: '#fbbf24', strokeWidth: 1.5 },
+  { key: 'databricks', color: '#f87171', strokeWidth: 1.5 },
+  { key: 'ai',         color: '#34d399', strokeWidth: 1.5 },
 ]
 
-export default function MoMTrend() {
-  const pct = (a: number, b: number) => `+${(((b - a) / a) * 100).toFixed(1)}%`
+interface Props {
+  data: MoMTrendRow[]
+}
+
+export default function MoMTrend({ data }: Props) {
+  const pct = (a: number, b: number) => `${((b - a) / a * 100) >= 0 ? '+' : ''}${((b - a) / a * 100).toFixed(1)}%`
+
+  const badges = data.length >= 2
+    ? data.slice(1).map((m, i) => ({
+        label: `${data[i].month.split(' ')[0]}→${m.month.split(' ')[0]}`,
+        value: pct(data[i].total, m.total),
+      }))
+    : []
 
   return (
     <div className="bg-slate-900 border border-slate-700/50 rounded-xl p-5 h-full">
@@ -47,18 +58,16 @@ export default function MoMTrend() {
           <p className="text-xs text-slate-500 mt-0.5">Monthly BilledCost · all projects</p>
         </div>
         <div className="flex gap-2 text-xs">
-          <div className="bg-slate-800 rounded px-2 py-1 text-center">
-            <p className="text-slate-400">Dec→Jan</p>
-            <p className="text-emerald-400 font-semibold">{pct(momTrend[0].total, momTrend[1].total)}</p>
-          </div>
-          <div className="bg-slate-800 rounded px-2 py-1 text-center">
-            <p className="text-slate-400">Jan→Feb</p>
-            <p className="text-emerald-400 font-semibold">{pct(momTrend[1].total, momTrend[2].total)}</p>
-          </div>
+          {badges.map(b => (
+            <div key={b.label} className="bg-slate-800 rounded px-2 py-1 text-center">
+              <p className="text-slate-400">{b.label}</p>
+              <p className="text-emerald-400 font-semibold">{b.value}</p>
+            </div>
+          ))}
         </div>
       </div>
       <ResponsiveContainer width="100%" height={290}>
-        <LineChart data={momTrend} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
+        <LineChart data={data} margin={{ top: 4, right: 8, bottom: 4, left: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#1e293b" />
           <XAxis dataKey="month" tick={{ fill: '#94a3b8', fontSize: 12 }} axisLine={false} tickLine={false} />
           <YAxis tickFormatter={fmtK} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false} width={62} />
