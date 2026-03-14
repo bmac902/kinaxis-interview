@@ -76,10 +76,7 @@ async function getSummary(bq, view, startMonth, endMonth) {
       SELECT
         SubAccountId AS project,
         ROUND(SUM(BilledCost), 2) AS cost,
-        (SELECT JSON_VALUE(l, '$.value')
-         FROM UNNEST(JSON_QUERY_ARRAY(COALESCE(Tags, '[]'))) AS l
-         WHERE JSON_VALUE(l, '$.key') = 'team'
-         LIMIT 1) AS team
+        JSON_VALUE(Tags, '$.team') AS team
       FROM ${view}
       WHERE InvoiceMonth >= @startMonth AND InvoiceMonth <= @endMonth
       GROUP BY SubAccountId, team
@@ -195,8 +192,8 @@ async function getSummary(bq, view, startMonth, endMonth) {
       SELECT
         SubAccountId AS project,
         ROUND(SUM(CASE
-          WHEN Tags IS NULL OR Tags = '[]' OR Tags = ''
-            OR ARRAY_LENGTH(JSON_QUERY_ARRAY(COALESCE(Tags,'[]'))) = 0
+          WHEN Tags IS NULL OR Tags = '{}' OR Tags = ''
+            OR JSON_VALUE(Tags, '$.team') IS NULL
           THEN BilledCost ELSE 0 END), 2) AS untagged,
         ROUND(SUM(BilledCost), 2) AS total
       FROM ${view}
@@ -282,13 +279,7 @@ async function getChargeback(bq, view, startMonth, endMonth) {
   const [rows] = await bq.query({
     query: `
       SELECT
-        COALESCE(
-          (SELECT JSON_VALUE(l, '$.value')
-           FROM UNNEST(JSON_QUERY_ARRAY(COALESCE(Tags, '[]'))) AS l
-           WHERE JSON_VALUE(l, '$.key') = 'team'
-           LIMIT 1),
-          '— untagged —'
-        ) AS team,
+        COALESCE(JSON_VALUE(Tags, '$.team'), '— untagged —') AS team,
         InvoiceMonth,
         ROUND(SUM(BilledCost), 2) AS cost,
         COUNT(DISTINCT SubAccountId) AS projectCount,
