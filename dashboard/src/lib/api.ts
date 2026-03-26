@@ -44,6 +44,7 @@ export interface CUDCoverageRow {
   project:     string
   computeCost: number
   cudCoverage: number
+  cudCredits:  number
   potential1yr: number
   potential3yr: number
 }

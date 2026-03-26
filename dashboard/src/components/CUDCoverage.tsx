@@ -40,7 +40,7 @@ interface Props {
 
 export default function CUDCoverage({ data, summary }: Props) {
   const sorted = [...data].sort((a, b) => b.computeCost - a.computeCost)
-  const allZero = sorted.every(d => d.cudCoverage === 0)
+  const allZero = sorted.every(d => d.cudCredits === 0)
 
   return (
     <div className="bg-slate-900 border border-slate-700/50 rounded-xl p-5">

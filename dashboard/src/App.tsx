@@ -229,9 +229,9 @@ export default function App() {
             <KPICard
               label="CUD Opportunity"
               value={fmt(data.kpis.cudOpportunityAnnual)}
-              sub="Annualised 1-yr CUD savings (20%). No CUDs purchased today."
+              sub={`Annualised 1-yr CUD savings (20%). ${data.cudCoverage.some(d => d.cudCredits > 0) ? 'Partial coverage exists.' : 'No CUDs purchased today.'}`}
               accent="amber"
-              badge="0% coverage"
+              badge={data.cudCoverage.some(d => d.cudCredits > 0) ? 'partial coverage' : '0% coverage'}
             />
           </div>
         ) : null}
