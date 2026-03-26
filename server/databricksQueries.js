@@ -133,12 +133,20 @@ async function getDatabricksGovernance() {
   ])
 
   // Roll up summary metrics
+  // Exclude PREDICTIVE_OPTIMIZATION from tag coverage — it carries a Databricks-managed system tag
+  // ("Predictive Optimization": "true") that is not a user governance tag.
+  // Identity and attribution coverage are rolled up across all products.
   let totalRecords = 0, taggedRecords = 0, identifiedRecords = 0, attributedRecords = 0
+  let userWorkloadRecords = 0  // denominator for taggedPct (INTERACTIVE + SQL only)
   for (const r of byProduct) {
-    totalRecords     += parseInt(r.records)       || 0
-    taggedRecords    += parseInt(r.tagged_records)     || 0
-    identifiedRecords+= parseInt(r.identified_records) || 0
-    attributedRecords+= parseInt(r.attributed_records) || 0
+    const records = parseInt(r.records) || 0
+    totalRecords      += records
+    identifiedRecords += parseInt(r.identified_records) || 0
+    attributedRecords += parseInt(r.attributed_records) || 0
+    if (r.product !== 'PREDICTIVE_OPTIMIZATION') {
+      userWorkloadRecords += records
+      taggedRecords       += parseInt(r.tagged_records) || 0
+    }
   }
 
   const pct = (n, d) => d ? Math.round((n / d) * 1000) / 10 : 0
@@ -161,7 +169,7 @@ async function getDatabricksGovernance() {
     })),
     summary: {
       totalRecords,
-      taggedPct:      pct(taggedRecords,     totalRecords),
+      taggedPct:      pct(taggedRecords,     userWorkloadRecords),
       identifiedPct:  pct(identifiedRecords, totalRecords),
       attributedPct:  pct(attributedRecords, totalRecords),
     },
