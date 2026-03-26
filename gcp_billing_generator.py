@@ -161,12 +161,12 @@ def make_labels(project: dict, extra: dict = None) -> list:
         labels = [l for l in labels if l["key"] not in ("team", "cost-center")]
     return labels
 
-def make_credits(cost: float, sku_desc: str, project_id: str, cud_map: dict) -> list:
+def make_credits(cost: float, sku_desc: str, project_id: str, cud_map: dict, svc_desc: str = "") -> list:
     """Apply CUD credits where applicable."""
     credits = []
     for cud in CUDS:
         if project_id in cud["projects"]:
-            if cud["service"] == "Compute Engine" and "Compute Engine" in sku_desc:
+            if cud["service"] == "Compute Engine" and cud["service"] in svc_desc:
                 if "CPU" in cud["description"] and "Core" in sku_desc:
                     credits.append({
                         "name": cud["name"],
@@ -243,7 +243,7 @@ def generate_billing_rows():
                 cost = round(qty * unit_cost, 6)
 
                 # Build credits
-                credits = make_credits(cost, sku_desc, project["id"], CUDS)
+                credits = make_credits(cost, sku_desc, project["id"], CUDS, svc_desc)
                 credit_amount = sum(c["amount"] for c in credits)
 
                 labels = make_labels(project, {"resource-type": resource_type})
@@ -700,7 +700,7 @@ echo "  - Month-over-month 8% growth trend across all services"
 # ── Run ────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    output_dir = Path("/home/claude/gcp_finops_poc")
+    output_dir = Path(".")
     output_dir.mkdir(exist_ok=True)
 
     print("🏗️  Generating GCP synthetic billing data...")
