@@ -22,18 +22,28 @@ ORDER BY 1, 2
 async function runStatement(sql) {
   const res = await fetch(`${HOST}/api/2.0/sql/statements`, {
     method: 'POST',
-    headers: {
-      Authorization: `Bearer ${TOKEN}`,
-      'Content-Type': 'application/json',
-    },
+    headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ statement: sql, warehouse_id: WAREHOUSE, wait_timeout: '50s' }),
   })
-  const json = await res.json()
+  let json = await res.json()
+
+  // Poll if warehouse is still cold-starting (PENDING after wait_timeout)
+  const statementId = json.statement_id
+  let attempts = 0
+  while (json.status?.state === 'PENDING' || json.status?.state === 'RUNNING') {
+    if (attempts++ > 12) throw new Error('Databricks query timed out after polling')
+    await new Promise(r => setTimeout(r, 5000))
+    const poll = await fetch(`${HOST}/api/2.0/sql/statements/${statementId}`, {
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    })
+    json = await poll.json()
+  }
+
   if (json.status?.state !== 'SUCCEEDED') {
     throw new Error(`Databricks query failed: ${JSON.stringify(json.status)}`)
   }
-  const cols  = json.manifest.schema.columns.map(c => c.name)
-  const rows  = (json.result?.data_array || []).map(row =>
+  const cols = json.manifest.schema.columns.map(c => c.name)
+  const rows = (json.result?.data_array || []).map(row =>
     Object.fromEntries(cols.map((c, i) => [c, row[i]]))
   )
   return rows
