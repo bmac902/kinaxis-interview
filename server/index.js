@@ -22,7 +22,7 @@ const mock = require('./mockFallback')
 
 // ── Databricks setup ───────────────────────────────────────────────────────────
 const dbx = require('./databricksQueries')
-const { getDatabricksGovernance } = dbx
+const { getDatabricksGovernance, getMultiCloudOverview } = dbx
 if (dbx.isConfigured) {
   console.log(`✅  Databricks connected → ${process.env.DATABRICKS_HOST}`)
 } else {
@@ -118,6 +118,16 @@ app.get('/api/databricks/governance', async (_req, res) => {
     res.json(await getDatabricksGovernance())
   } catch (err) {
     console.error('/api/databricks/governance error:', err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+app.get('/api/databricks/multicloud', async (_req, res) => {
+  if (!dbx.isConfigured) return res.status(503).json({ error: 'Databricks not configured' })
+  try {
+    res.json(await getMultiCloudOverview())
+  } catch (err) {
+    console.error('/api/databricks/multicloud error:', err.message)
     res.status(500).json({ error: err.message })
   }
 })

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchDatabricksUsage, fetchDatabricksGovernance } from '../lib/api'
-import type { DatabricksUsageData, GovernanceData } from '../lib/api'
+import { fetchDatabricksUsage, fetchDatabricksGovernance, fetchMultiCloudOverview } from '../lib/api'
+import type { DatabricksUsageData, GovernanceData, MultiCloudData } from '../lib/api'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, Sector,
@@ -89,6 +89,121 @@ function KPI({ label, value, sub }: { label: string; value: string; sub?: string
   )
 }
 
+// ── GCP service colour palette (blues/teals — distinct from Databricks ambers) ─
+const GCP_COLORS = ['#60a5fa','#34d399','#a78bfa','#f472b6','#38bdf8','#fb923c','#94a3b8']
+function gcpColor(i: number) { return GCP_COLORS[i % GCP_COLORS.length] }
+
+// ── Multi-Cloud Overview panel ────────────────────────────────────────────────
+function MultiCloudOverview({ data }: { data: MultiCloudData }) {
+  const grandTotal = data.gcp.total + data.databricks.total
+  const gcpPct = grandTotal > 0 ? (data.gcp.total / grandTotal) * 100 : 0
+  const dbxPct = 100 - gcpPct
+
+  const fmtK = (v: number) =>
+    v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M`
+    : v >= 1_000   ? `$${(v / 1_000).toFixed(1)}K`
+    : `$${v.toFixed(2)}`
+
+  // Combined monthly chart — merge GCP + Databricks months
+  const allMonths = Array.from(new Set([
+    ...data.gcp.byMonth.map(r => r.month),
+    ...data.databricks.byMonth.map(r => r.month),
+  ])).sort()
+
+  const gcpIdx   = Object.fromEntries(data.gcp.byMonth.map(r => [r.month, r]))
+  const dbxIdx   = Object.fromEntries(data.databricks.byMonth.map(r => [r.month, r]))
+
+  const chartData = allMonths.map(month => {
+    const gcpRow = gcpIdx[month] ?? {}
+    const dbxRow = dbxIdx[month] ?? {}
+    const entry: Record<string, string | number> = { month: month.slice(0, 7) }
+    for (const s of data.gcp.services) entry[`gcp_${s}`] = (gcpRow[s] as number) ?? 0
+    for (const p of data.databricks.products) entry[`dbx_${p}`] = (dbxRow[p] as number) ?? 0
+    return entry
+  })
+
+  const providers = [
+    { label: 'GCP',         total: data.gcp.total,        pct: gcpPct,  color: '#60a5fa', note: 'Synthetic export · workspace.default.gcp_billing_export' },
+    { label: 'Databricks',  total: data.databricks.total, pct: dbxPct,  color: '#f59e0b', note: 'Live · system.billing.usage' },
+  ]
+
+  return (
+    <div className="bg-slate-900 border border-blue-500/20 rounded-xl p-5 space-y-5">
+      <div>
+        <div className="flex items-center gap-2 mb-0.5">
+          <p className="text-sm font-semibold text-slate-100">Multi-Cloud Overview</p>
+          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 border border-blue-500/30 text-blue-400 font-medium">
+            Unity Catalog
+          </span>
+        </div>
+        <p className="text-xs text-slate-500">
+          Both providers queried from one Databricks SQL warehouse ·{' '}
+          <code className="text-slate-400">workspace.default</code> + <code className="text-slate-400">system.billing.usage</code>
+        </p>
+      </div>
+
+      {/* Grand total + provider bars */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        {/* Total card */}
+        <div className="bg-slate-800/50 rounded-lg px-4 py-3">
+          <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Total Cloud Spend</p>
+          <p className="text-2xl font-bold font-mono text-white">{fmtK(grandTotal)}</p>
+          <p className="text-[11px] text-slate-600 mt-0.5">All providers combined</p>
+        </div>
+
+        {/* Share-of-wallet bars */}
+        <div className="lg:col-span-2 space-y-3 pt-1">
+          {providers.map(p => (
+            <div key={p.label} className="space-y-1">
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-slate-300 font-medium w-24">{p.label}</span>
+                <div className="flex-1 mx-3 h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-700"
+                    style={{ width: `${p.pct.toFixed(1)}%`, background: p.color }}
+                  />
+                </div>
+                <span className="font-mono text-slate-200 w-16 text-right">{fmtK(p.total)}</span>
+                <span className="text-slate-500 w-10 text-right">{p.pct.toFixed(1)}%</span>
+              </div>
+              <p className="text-[10px] text-slate-600 pl-24">{p.note}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Combined monthly bar chart */}
+      {chartData.length > 0 && (
+        <div>
+          <p className="text-xs text-slate-500 uppercase tracking-wide mb-3">Monthly Spend by Provider</p>
+          <ResponsiveContainer width="100%" height={180}>
+            <BarChart data={chartData} margin={{ top: 4, right: 8, left: 0, bottom: 4 }}>
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#94a3b8' }} />
+              <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }}
+                tickFormatter={v => v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v}`} />
+              <Tooltip
+                contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 11 }}
+                formatter={(v: unknown, name: string) => {
+                  const label = name.startsWith('gcp_')
+                    ? `GCP · ${name.slice(4)}`
+                    : `DBX · ${productLabel(name.slice(4))}`
+                  return [`$${(v as number).toFixed(2)}`, label]
+                }}
+              />
+              {data.gcp.services.map((s, i) => (
+                <Bar key={`gcp_${s}`} dataKey={`gcp_${s}`} stackId="a" fill={gcpColor(i)} name={`gcp_${s}`} />
+              ))}
+              {data.databricks.products.map(p => (
+                <Bar key={`dbx_${p}`} dataKey={`dbx_${p}`} stackId="a" fill={productColor(p)} name={`dbx_${p}`} />
+              ))}
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main Tab ─────────────────────────────────────────────────────────────────
 export default function DatabricksLiveTab() {
   const [activeIndex, setActiveIndex] = useState(0)
@@ -103,6 +218,13 @@ export default function DatabricksLiveTab() {
   const { data: gov } = useQuery<GovernanceData>({
     queryKey: ['databricks-governance'],
     queryFn:  fetchDatabricksGovernance,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  })
+
+  const { data: multicloud } = useQuery<MultiCloudData>({
+    queryKey: ['databricks-multicloud'],
+    queryFn:  fetchMultiCloudOverview,
     staleTime: 5 * 60_000,
     retry: 1,
   })
@@ -180,6 +302,9 @@ export default function DatabricksLiveTab() {
 
   return (
     <div className="space-y-5">
+
+      {/* Multi-Cloud Overview */}
+      {multicloud && <MultiCloudOverview data={multicloud} />}
 
       {/* KPI Row */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -452,7 +577,8 @@ export default function DatabricksLiveTab() {
       {/* Footer */}
       <p className="text-xs text-slate-600 text-center pb-2">
         Live · <code className="text-slate-500">system.billing.usage</code> · Databricks Free Tier ·{' '}
-        Priced from <code className="text-slate-500">system.billing.list_prices</code>
+        Priced from <code className="text-slate-500">system.billing.list_prices</code> ·{' '}
+        GCP from <code className="text-slate-500">workspace.default.gcp_billing_export</code>
       </p>
     </div>
   )

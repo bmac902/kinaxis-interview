@@ -191,3 +191,22 @@ export interface GovernanceData {
 export function fetchDatabricksGovernance(): Promise<GovernanceData> {
   return get<GovernanceData>('/api/databricks/governance')
 }
+
+// ── Multi-Cloud types ──────────────────────────────────────────────────────────
+
+export interface MultiCloudData {
+  gcp: {
+    total:    number
+    byMonth:  ({ month: string } & Record<string, number>)[]
+    services: string[]
+  }
+  databricks: {
+    total:    number
+    byMonth:  ({ month: string } & Record<string, number>)[]
+    products: string[]
+  }
+}
+
+export function fetchMultiCloudOverview(): Promise<MultiCloudData> {
+  return get<MultiCloudData>('/api/databricks/multicloud')
+}

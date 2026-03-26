@@ -182,4 +182,74 @@ async function getDatabricksGovernance() {
   }
 }
 
-module.exports = { getDatabricksUsage, getDatabricksGovernance, isConfigured: !!(HOST && TOKEN && WAREHOUSE) }
+// ── Multi-Cloud Overview ───────────────────────────────────────────────────────
+
+const SQL_MULTICLOUD_GCP = `
+SELECT
+  LEFT(CAST(DATE_TRUNC('MONTH', usage_start_time) AS STRING), 7) AS month,
+  \`service.description\`                                          AS service,
+  ROUND(SUM(cost), 2)                                             AS cost
+FROM workspace.default.gcp_billing_export
+WHERE cost > 0
+GROUP BY 1, 2
+ORDER BY 1, 2
+`
+
+const SQL_MULTICLOUD_DBX = `
+SELECT
+  LEFT(CAST(DATE_TRUNC('MONTH', CAST(usage_date AS DATE)) AS STRING), 7) AS month,
+  billing_origin_product                                                   AS product,
+  ROUND(SUM(u.usage_quantity * COALESCE(p.pricing.default, 0)), 4)        AS cost
+FROM system.billing.usage u
+LEFT JOIN system.billing.list_prices p
+  ON  u.sku_name = p.sku_name
+  AND u.usage_start_time BETWEEN p.price_start_time
+      AND COALESCE(p.price_end_time, CURRENT_TIMESTAMP())
+WHERE u.usage_unit = 'DBU'
+GROUP BY 1, 2
+ORDER BY 1, 2
+`
+
+async function getMultiCloudOverview() {
+  const [gcpRows, dbxRows] = await Promise.all([
+    runStatement(SQL_MULTICLOUD_GCP),
+    runStatement(SQL_MULTICLOUD_DBX),
+  ])
+
+  // GCP rollup
+  const gcpServices = [...new Set(gcpRows.map(r => r.service))]
+  const gcpMonthMap = {}
+  let gcpTotal = 0
+  for (const r of gcpRows) {
+    const cost = parseFloat(r.cost) || 0
+    gcpTotal += cost
+    if (!gcpMonthMap[r.month]) gcpMonthMap[r.month] = { month: r.month }
+    gcpMonthMap[r.month][r.service] = (gcpMonthMap[r.month][r.service] || 0) + cost
+  }
+
+  // Databricks rollup
+  const dbxProducts = [...new Set(dbxRows.map(r => r.product))]
+  const dbxMonthMap = {}
+  let dbxTotal = 0
+  for (const r of dbxRows) {
+    const cost = parseFloat(r.cost) || 0
+    dbxTotal += cost
+    if (!dbxMonthMap[r.month]) dbxMonthMap[r.month] = { month: r.month }
+    dbxMonthMap[r.month][r.product] = (dbxMonthMap[r.month][r.product] || 0) + cost
+  }
+
+  return {
+    gcp: {
+      total:    Math.round(gcpTotal * 100) / 100,
+      byMonth:  Object.values(gcpMonthMap).sort((a, b) => a.month.localeCompare(b.month)),
+      services: gcpServices,
+    },
+    databricks: {
+      total:    Math.round(dbxTotal * 10000) / 10000,
+      byMonth:  Object.values(dbxMonthMap).sort((a, b) => a.month.localeCompare(b.month)),
+      products: dbxProducts,
+    },
+  }
+}
+
+module.exports = { getDatabricksUsage, getDatabricksGovernance, getMultiCloudOverview, isConfigured: !!(HOST && TOKEN && WAREHOUSE) }
