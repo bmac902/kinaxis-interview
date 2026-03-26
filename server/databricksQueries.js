@@ -83,6 +83,7 @@ SELECT
     * 100.0 / COUNT(*), 1)                                                                AS tag_pct
 FROM system.billing.usage
 WHERE usage_unit = 'DBU'
+  AND billing_origin_product IN ('INTERACTIVE', 'SQL')
 GROUP BY 1
 ORDER BY 1
 `
