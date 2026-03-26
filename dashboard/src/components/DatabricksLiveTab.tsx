@@ -158,15 +158,39 @@ export default function DatabricksLiveTab() {
   const interactiveDbus = totals.byProduct['INTERACTIVE'] ?? 0
   const sqlDbus         = totals.byProduct['SQL'] ?? 0
 
+  // Unattributed cost — anonymous principal
+  const anonRow        = gov?.byPrincipal.find(r => r.principal === '— anonymous —')
+  const unattribCost   = anonRow?.est_cost ?? 0
+  const unattribPct    = totals.cost > 0 ? Math.round((unattribCost / totals.cost) * 100) : 0
+
+  // Policy readiness — all three thresholds must pass
+  const tagThreshold   = 50
+  const idThreshold    = 50
+  const attrThreshold  = 50
+  const tagPass   = (gov?.summary.taggedPct     ?? 0) >= tagThreshold
+  const idPass    = (gov?.summary.identifiedPct  ?? 0) >= idThreshold
+  const attrPass  = (gov?.summary.attributedPct  ?? 0) >= attrThreshold
+  const chargebackReady = tagPass && idPass && attrPass
+  const failReasons = [
+    !tagPass  && `Tag coverage ${gov?.summary.taggedPct.toFixed(1)}% < ${tagThreshold}%`,
+    !idPass   && `Identity coverage ${gov?.summary.identifiedPct.toFixed(1)}% < ${idThreshold}%`,
+    !attrPass && `Attribution coverage ${gov?.summary.attributedPct.toFixed(1)}% < ${attrThreshold}%`,
+  ].filter(Boolean) as string[]
+
   return (
     <div className="space-y-5">
 
       {/* KPI Row */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPI label="Total DBUs" value={totals.dbus.toFixed(2)} sub="All products" />
-        <KPI label="Est. Cost"  value={fmt$(totals.cost)}      sub="From list_prices" />
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <KPI label="Total DBUs"       value={totals.dbus.toFixed(2)} sub="All products" />
+        <KPI label="Est. Cost"        value={fmt$(totals.cost)}      sub="From list_prices" />
         <KPI label="Interactive DBUs" value={interactiveDbus.toFixed(2)} sub="Notebook / cluster" />
         <KPI label="SQL DBUs"         value={sqlDbus.toFixed(2)}         sub="SQL Warehouse" />
+        <div className="bg-slate-900 border border-red-700/40 rounded-xl px-5 py-4 flex flex-col gap-1">
+          <p className="text-xs text-slate-500 font-medium uppercase tracking-wide">Unattributed Cost</p>
+          <p className="text-2xl font-bold font-mono tracking-tight text-red-400">{fmt$(unattribCost)}</p>
+          <p className="text-xs text-slate-500">{unattribPct}% of total · no user identity</p>
+        </div>
       </div>
 
       {/* Charts Row */}
@@ -278,6 +302,43 @@ export default function DatabricksLiveTab() {
                 <p className="text-[11px] text-slate-600 mt-0.5">{note}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Policy Readiness */}
+        {gov && (
+          <div className={`rounded-lg border px-4 py-3 flex items-start justify-between gap-4 ${
+            chargebackReady
+              ? 'bg-emerald-950/30 border-emerald-700/40'
+              : 'bg-red-950/20 border-red-700/30'
+          }`}>
+            <div>
+              <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">Chargeback Readiness</p>
+              <p className={`text-lg font-bold ${chargebackReady ? 'text-emerald-400' : 'text-red-400'}`}>
+                {chargebackReady ? '✓ Ready' : '✗ Not Ready'}
+              </p>
+              {!chargebackReady && (
+                <ul className="mt-1 space-y-0.5">
+                  {failReasons.map(r => (
+                    <li key={r} className="text-[11px] text-red-400/80">· {r}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div className="text-right shrink-0">
+              <p className="text-xs text-slate-500 mb-1">Thresholds</p>
+              {[
+                { label: 'Tag',         pass: tagPass,  val: gov.summary.taggedPct },
+                { label: 'Identity',    pass: idPass,   val: gov.summary.identifiedPct },
+                { label: 'Attribution', pass: attrPass, val: gov.summary.attributedPct },
+              ].map(({ label, pass, val }) => (
+                <p key={label} className="text-[11px] font-mono">
+                  <span className={pass ? 'text-emerald-400' : 'text-red-400'}>{pass ? '✓' : '✗'}</span>
+                  {' '}
+                  <span className="text-slate-400">{label} {val.toFixed(1)}%</span>
+                </p>
+              ))}
+            </div>
           </div>
         )}
 
