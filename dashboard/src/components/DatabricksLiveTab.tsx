@@ -4,6 +4,7 @@ import type { DatabricksUsageData, GovernanceData } from '../lib/api'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, Sector,
+  LineChart, Line, ReferenceLine,
 } from 'recharts'
 import { useState } from 'react'
 
@@ -302,6 +303,35 @@ export default function DatabricksLiveTab() {
                 <p className="text-[11px] text-slate-600 mt-0.5">{note}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Tag Coverage Trend */}
+        {gov && gov.tagTrend.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 uppercase tracking-wide mb-3">Tag Coverage by Day</p>
+            <ResponsiveContainer width="100%" height={160}>
+              <LineChart data={gov.tagTrend} margin={{ top: 4, right: 16, left: 0, bottom: 4 }}>
+                <XAxis dataKey="date" tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tickFormatter={d => d.slice(5)} />
+                <YAxis domain={[0, 100]} tick={{ fontSize: 11, fill: '#94a3b8' }}
+                  tickFormatter={v => `${v}%`} width={36} />
+                <Tooltip
+                  contentStyle={{ background: '#0f172a', border: '1px solid #334155', borderRadius: 8, fontSize: 12 }}
+                  formatter={(v: unknown) => [`${(v as number).toFixed(1)}%`, 'Tag Coverage']}
+                  labelFormatter={l => `Date: ${l}`}
+                />
+                <ReferenceLine y={50} stroke="#f59e0b" strokeDasharray="4 2"
+                  label={{ value: 'Threshold', position: 'right', fill: '#f59e0b', fontSize: 10 }} />
+                <Line type="monotone" dataKey="tagPct" stroke="#3b82f6" strokeWidth={2}
+                  dot={{ fill: '#3b82f6', r: 4 }} activeDot={{ r: 6 }} />
+              </LineChart>
+            </ResponsiveContainer>
+            {gov.tagTrend.length > 0 && gov.tagTrend[gov.tagTrend.length - 1].tagPct >= 50 && (
+              <p className="text-xs text-emerald-400 mt-1">
+                ✓ Latest day above threshold — policy enforcement detected
+              </p>
+            )}
           </div>
         )}
 

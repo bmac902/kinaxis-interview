@@ -169,6 +169,13 @@ export interface SpendByPrincipal {
   est_cost:  number
 }
 
+export interface TagTrendRow {
+  date:          string
+  totalRecords:  number
+  taggedRecords: number
+  tagPct:        number
+}
+
 export interface GovernanceData {
   byProduct:   GovernanceByProduct[]
   byPrincipal: SpendByPrincipal[]
@@ -178,6 +185,7 @@ export interface GovernanceData {
     identifiedPct:  number
     attributedPct:  number
   }
+  tagTrend: TagTrendRow[]
 }
 
 export function fetchDatabricksGovernance(): Promise<GovernanceData> {

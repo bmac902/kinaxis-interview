@@ -73,6 +73,20 @@ async function getDatabricksUsage() {
   return { rows, totals, byDate }
 }
 
+const SQL_TAG_TREND = `
+SELECT
+  CAST(usage_date AS STRING)                                                              AS usage_date,
+  COUNT(*)                                                                                AS total_records,
+  SUM(CASE WHEN custom_tags IS NOT NULL AND size(custom_tags) > 0 THEN 1 ELSE 0 END)    AS tagged_records,
+  ROUND(
+    SUM(CASE WHEN custom_tags IS NOT NULL AND size(custom_tags) > 0 THEN 1 ELSE 0 END)
+    * 100.0 / COUNT(*), 1)                                                                AS tag_pct
+FROM system.billing.usage
+WHERE usage_unit = 'DBU'
+GROUP BY 1
+ORDER BY 1
+`
+
 const SQL_GOV_BY_PRODUCT = `
 SELECT
   billing_origin_product                                                   AS product,
@@ -111,9 +125,10 @@ ORDER BY dbus DESC
 `
 
 async function getDatabricksGovernance() {
-  const [byProduct, byPrincipal] = await Promise.all([
+  const [byProduct, byPrincipal, tagTrend] = await Promise.all([
     runStatement(SQL_GOV_BY_PRODUCT),
     runStatement(SQL_GOV_BY_PRINCIPAL),
+    runStatement(SQL_TAG_TREND),
   ])
 
   // Roll up summary metrics
@@ -149,6 +164,12 @@ async function getDatabricksGovernance() {
       identifiedPct:  pct(identifiedRecords, totalRecords),
       attributedPct:  pct(attributedRecords, totalRecords),
     },
+    tagTrend: tagTrend.map(r => ({
+      date:          r.usage_date,
+      totalRecords:  parseInt(r.total_records)  || 0,
+      taggedRecords: parseInt(r.tagged_records) || 0,
+      tagPct:        parseFloat(r.tag_pct)      || 0,
+    })),
   }
 }
 
