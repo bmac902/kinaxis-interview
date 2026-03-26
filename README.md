@@ -24,6 +24,8 @@ After the initial interview, there was a window of time before the next round. I
 
 I completed the FinOps Certified Practitioner exam with a score of 98%, and worked through *Cloud FinOps* by J.R. Storment and Mike Fuller to reinforce the operating model behind the tools. The goal wasn't just to build something functional — it was to ensure the architecture aligned with real FinOps practice.
 
+That same week, I stumbled across a FinOps X conference talk from a former WestJet colleague, Cory — who had built an open-source repository converting Databricks billing data into FOCUS format ([csyvenky-finops/fox25](https://github.com/csyvenky-finops/fox25)). Small world. We reconnected, attended the most recent FinOps Foundation quarterly update together, and he pulled me into the Canadian FinOps community meeting. That kind of network doesn't come from reading docs — it comes from showing up.
+
 That preparation phase established a clear working rhythm: move quickly with modern tooling, stay disciplined about what ships.
 
 ### Extending the System into Databricks
