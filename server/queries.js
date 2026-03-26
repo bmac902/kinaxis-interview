@@ -146,6 +146,7 @@ async function getSummary(bq, view, startMonth, endMonth) {
       project:     r.project,
       computeCost: cc,
       cudCoverage: pct,
+      cudCredits:  cud,
       potential1yr: Math.round(cc * 0.20),
       potential3yr: Math.round(cc * 0.37),
     }
