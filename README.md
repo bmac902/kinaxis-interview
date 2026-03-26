@@ -1,43 +1,66 @@
-# GCP FinOps Dashboard — FOCUS 1.0
+# Multi-Cloud FinOps Dashboard — GCP + Databricks
 
 > Built as a take-home exercise for a FinOps role at Kinaxis.
 > Turned into something more.
 
 ---
 
-## The story
+## The Story
 
-GCP has always been my thinnest cloud. I know that. So when a FinOps role at Kinaxis came up, I decided to close the gap properly — not by reading about it, but by building something real on it.
+GCP had always been my thinnest cloud. I knew that.
+So when Kinaxis reached out about a FinOps role, I decided to close that gap properly — not by reading documentation, but by building something real.
 
-I got a GCP account, loaded synthetic billing data into BigQuery, and implemented the FOCUS 1.0 spec from scratch. Hit real errors along the way: BigQuery rejecting dots in column names, `JSON_EXTRACT_ARRAY` failing on autodetected STRING columns, `InvoiceMonth` stored as integer `202412` not string `2024-12`. Debugged them live, fixed them, moved on.
+I started by standing up a GCP environment and loading synthetic billing data into BigQuery. From there, I implemented the FOCUS 1.0 specification from scratch, using Claude Code as a pair programmer. The process quickly surfaced real-world issues: BigQuery rejecting column names with dots, `JSON_EXTRACT_ARRAY` failing because of autodetected STRING types, and `InvoiceMonth` arriving as an integer (`202412`) instead of a proper date string (`2024-12`). Each problem was debugged directly in the system and resolved in place.
 
-Ran the CUD query. Saw 0% coverage everywhere. Recognised it immediately as the story — not a bug, a finding.
+One of the first meaningful signals came from the Committed Use Discount (CUD) analysis. Coverage showed 0% across the dataset. That wasn't a bug — it was the finding. It immediately reframed the work from implementation to interpretation, which is where FinOps actually lives.
 
-**Then I built the dashboard — with Claude Code as my pair programmer.**
+By the end of that first build session, the core GCP analytics stack was operational: ingestion, normalization, cost analysis, and a working dashboard layer. Every architectural decision remained deliberate. AI accelerated the implementation, but design direction and validation stayed human-driven.
 
-I used this project as a test of AI-assisted development. The entire stack — live BigQuery integration, React Query, drill-down modal, chargeback table, savings panel, anomaly detection, live Databricks system tables, governance panel, multi-cloud overview — was built across a Thursday evening and Friday morning before the interview. Every architectural decision was mine. Claude wrote code I reviewed and directed.
+At the same time, I provisioned a Databricks environment. Not because the project required it yet, but because the role clearly involved Databricks, and hands-on familiarity matters more than theory.
 
-That's the actual workflow I'd bring to Kinaxis: move fast with AI tooling, stay rigorous about what ships.
+### Preparing for the Next Stage
 
-**Part 2 came the next morning.**
+After the initial interview, there was a window of time before the next round. I used that time deliberately.
 
-I connected the dashboard to my real Databricks free-tier account — live data, not synthetic. The first pitfall was immediate: the SQL warehouse cold-starts, and Databricks returns `PENDING` after the 50-second wait timeout instead of blocking. Added a polling loop. Problem solved.
+I completed the FinOps Certified Practitioner exam with a score of 98%, and worked through *Cloud FinOps* by J.R. Storment and Mike Fuller to reinforce the operating model behind the tools. The goal wasn't just to build something functional — it was to ensure the architecture aligned with real FinOps practice.
 
-Then I built the governance panel — tag coverage, identity coverage, attribution coverage, spend by principal. The tag coverage KPI showed 10.5% and looked wrong. Dug into it: `PREDICTIVE_OPTIMIZATION` rows carry a Databricks-managed system tag (`{"Predictive Optimization": "true"}`) that has nothing to do with user governance. It was inflating the metric. Fixed it by computing tag coverage only over `INTERACTIVE` and `SQL` workloads — the ones users actually control. Coverage dropped to 0.0%. That's the honest number.
+That preparation phase established a clear working rhythm: move quickly with modern tooling, stay disciplined about what ships.
 
-Set up a Databricks usage policy (`finops-governance-policy`) enforcing four tags: `environment`, `team`, `cost-center`, `project`. Then built the tag coverage trend chart to show compliance over time. The 0% is a current-state finding, not a flaw — it's exactly what you'd surface on day one in a real engagement.
+### Extending the System into Databricks
 
-Last thing: the GCP billing data was already sitting in the Databricks workspace as a Delta table. That opened a different conversation — not "replace BigQuery with Databricks" but "use Databricks as the unified analytics layer for both." The Multi-Cloud Overview panel queries `workspace.default.gcp_billing_export` and `system.billing.usage` from the same SQL warehouse. One endpoint, two providers. That's the Unity Catalog pitch.
+The next step was connecting the dashboard to live Databricks usage data.
+
+The first operational issue appeared immediately: the SQL warehouse cold-start behavior. Instead of blocking until ready, Databricks returned a `PENDING` state after the default timeout. A polling loop stabilized the workflow and ensured predictable responses.
+
+With the connection stable, the focus shifted from visibility to governance. A governance panel was added to surface the signals that matter in real environments: tag coverage, identity coverage, attribution coverage, and spend by principal.
+
+The initial tag coverage metric reported 10.5%, which didn't align with expectations. Investigation revealed the cause: `PREDICTIVE_OPTIMIZATION` workloads include a Databricks-managed system tag (`{"Predictive Optimization": "true"}`) unrelated to user governance. The calculation was corrected to measure coverage only across workloads users actually control — `INTERACTIVE` and `SQL` compute. Once adjusted, tag coverage dropped to 0.0%.
+
+That result wasn't a failure. It was an honest baseline — exactly the kind of signal a FinOps team expects on day one.
+
+To move from visibility to enforcement, a usage policy (`finops-governance-policy`) was implemented requiring four tags: `environment`, `team`, `cost-center`, `project`. A tag coverage trend chart tracks adoption over time. The system now shows both the current state and the path forward.
+
+### The Architectural Insight
+
+The GCP billing dataset was already available inside the Databricks workspace as a Delta table. That changed the framing of the problem entirely.
+
+This wasn't about replacing BigQuery with Databricks. It was about using Databricks as the analytics layer across environments.
+
+The Multi-Cloud Overview panel demonstrates that model directly. A single SQL warehouse queries both `workspace.default.gcp_billing_export` and `system.billing.usage` — one query engine, two providers, one governance model. That is the practical expression of the Unity Catalog value proposition.
 
 ---
 
 ## What this is
 
-![GCP FinOps Dashboard — GCP tab](docs/screenshots/dashboard-top.png)
-
 A production-quality multi-cloud FinOps dashboard. Live BigQuery backend for GCP. Live Databricks `system.billing.usage` for Databricks. FOCUS 1.0 compliant. Executive-ready exports. Multi-cloud overview powered by Databricks Unity Catalog.
 
+
+![GCP FinOps Dashboard — GCP tab](docs/screenshots/dashboard-top.png)
+
+
 ![Savings panel and chargeback table](docs/screenshots/dashboard-bottom.png)
+
+![Databricks Live tab — governance and multi-cloud overview](docs/screenshots/dashboard-databricks.png)
 
 ---
 
