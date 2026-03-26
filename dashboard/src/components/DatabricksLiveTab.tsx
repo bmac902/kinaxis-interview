@@ -1,11 +1,29 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchDatabricksUsage } from '../lib/api'
-import type { DatabricksUsageData } from '../lib/api'
+import { fetchDatabricksUsage, fetchDatabricksGovernance } from '../lib/api'
+import type { DatabricksUsageData, GovernanceData } from '../lib/api'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell, Sector,
 } from 'recharts'
 import { useState } from 'react'
+
+// ── Classification rules ──────────────────────────────────────────────────────
+const CLASSIFICATION: Record<string, { category: string; confidence: 'HIGH' | 'MEDIUM' | 'LOW'; note: string }> = {
+  INTERACTIVE:             { category: 'Interactive / Notebook', confidence: 'HIGH',   note: 'User identity present' },
+  SQL:                     { category: 'SQL Analytics',          confidence: 'MEDIUM', note: 'Warehouse known, no user' },
+  PREDICTIVE_OPTIMIZATION: { category: 'System / Automated',     confidence: 'HIGH',   note: 'System-managed, tagged' },
+  AI_GATEWAY:              { category: 'AI / Inference',         confidence: 'LOW',    note: 'Minimal metadata' },
+}
+
+function classify(product: string) {
+  return CLASSIFICATION[product] ?? { category: 'Unknown', confidence: 'LOW' as const, note: 'No mapping' }
+}
+
+const CONFIDENCE_STYLE: Record<string, string> = {
+  HIGH:   'bg-emerald-950/60 text-emerald-400',
+  MEDIUM: 'bg-amber-950/60 text-amber-400',
+  LOW:    'bg-red-950/60 text-red-400',
+}
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const PRODUCT_COLORS: Record<string, string> = {
@@ -77,6 +95,13 @@ export default function DatabricksLiveTab() {
   const { data, isLoading, isError, error } = useQuery<DatabricksUsageData>({
     queryKey: ['databricks-usage'],
     queryFn:  fetchDatabricksUsage,
+    staleTime: 5 * 60_000,
+    retry: 1,
+  })
+
+  const { data: gov } = useQuery<GovernanceData>({
+    queryKey: ['databricks-governance'],
+    queryFn:  fetchDatabricksGovernance,
     staleTime: 5 * 60_000,
     retry: 1,
   })
@@ -228,6 +253,109 @@ export default function DatabricksLiveTab() {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* ── Governance Panel ──────────────────────────────────────────────── */}
+      <div className="bg-slate-900 border border-slate-700/50 rounded-xl p-5 space-y-5">
+        <div>
+          <p className="text-sm font-semibold text-slate-100 mb-0.5">Governance &amp; Attribution</p>
+          <p className="text-xs text-slate-500">Coverage metrics from identity_metadata · custom_tags · usage_metadata</p>
+        </div>
+
+        {/* Coverage KPIs */}
+        {gov && (
+          <div className="grid grid-cols-3 gap-4">
+            {[
+              { label: 'Tag Coverage',      value: gov.summary.taggedPct,     note: 'Rows with custom_tags set',           accent: gov.summary.taggedPct < 20 ? 'red' : 'emerald' },
+              { label: 'Identity Coverage', value: gov.summary.identifiedPct, note: 'Rows with run_as principal',          accent: gov.summary.identifiedPct > 50 ? 'emerald' : 'amber' },
+              { label: 'Attribution Coverage', value: gov.summary.attributedPct, note: 'Rows with notebook / job / warehouse', accent: gov.summary.attributedPct > 50 ? 'emerald' : 'amber' },
+            ].map(({ label, value, note, accent }) => (
+              <div key={label} className="bg-slate-800/50 rounded-lg px-4 py-3">
+                <p className="text-xs text-slate-500 uppercase tracking-wide mb-1">{label}</p>
+                <p className={`text-xl font-bold font-mono ${
+                  accent === 'red' ? 'text-red-400' : accent === 'amber' ? 'text-amber-400' : 'text-emerald-400'
+                }`}>{value.toFixed(1)}%</p>
+                <p className="text-[11px] text-slate-600 mt-0.5">{note}</p>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Classification table */}
+        <div>
+          <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Workload Classification</p>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-slate-700/60 text-slate-500 uppercase text-left">
+                <th className="pb-2 font-medium tracking-wide">Product</th>
+                <th className="pb-2 font-medium tracking-wide">Category</th>
+                <th className="pb-2 font-medium tracking-wide">Confidence</th>
+                <th className="pb-2 font-medium tracking-wide text-right">DBUs</th>
+                <th className="pb-2 font-medium tracking-wide text-right">Cost</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(gov?.byProduct ?? []).map(r => {
+                const cls = classify(r.product)
+                return (
+                  <tr key={r.product} className="border-b border-slate-800/50">
+                    <td className="py-2 pr-3">
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-medium"
+                        style={{ background: productColor(r.product) + '22', color: productColor(r.product) }}>
+                        {productLabel(r.product)}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3 text-slate-300">{cls.category}</td>
+                    <td className="py-2 pr-3">
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${CONFIDENCE_STYLE[cls.confidence]}`}>
+                        {cls.confidence}
+                      </span>
+                      <span className="ml-2 text-slate-600 text-[10px]">{cls.note}</span>
+                    </td>
+                    <td className="py-2 text-right font-mono text-slate-300">{r.dbus.toFixed(2)}</td>
+                    <td className="py-2 text-right font-mono text-emerald-400">{fmt$(r.est_cost)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Spend by principal */}
+        {gov && gov.byPrincipal.length > 0 && (
+          <div>
+            <p className="text-xs text-slate-500 uppercase tracking-wide mb-2">Spend by Principal</p>
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-slate-700/60 text-slate-500 uppercase text-left">
+                  <th className="pb-2 font-medium tracking-wide">Principal</th>
+                  <th className="pb-2 font-medium tracking-wide text-right">DBUs</th>
+                  <th className="pb-2 font-medium tracking-wide text-right">Cost</th>
+                  <th className="pb-2 font-medium tracking-wide text-right">Share</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gov.byPrincipal.map(r => {
+                  const isAnon = r.principal === '— anonymous —'
+                  const share = gov.summary.totalRecords
+                    ? Math.round((r.records / gov.summary.totalRecords) * 100)
+                    : 0
+                  return (
+                    <tr key={r.principal} className="border-b border-slate-800/50">
+                      <td className={`py-2 pr-3 font-mono text-[11px] ${isAnon ? 'text-amber-400' : 'text-slate-300'}`}>
+                        {r.principal}
+                        {isAnon && <span className="ml-2 text-[10px] bg-amber-950/60 text-amber-400 px-1.5 py-0.5 rounded">governance gap</span>}
+                      </td>
+                      <td className="py-2 text-right font-mono text-slate-300">{r.dbus.toFixed(2)}</td>
+                      <td className="py-2 text-right font-mono text-emerald-400">{fmt$(r.est_cost)}</td>
+                      <td className="py-2 text-right text-slate-500">{share}%</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Footer */}

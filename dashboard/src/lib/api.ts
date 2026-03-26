@@ -151,3 +151,35 @@ export interface DatabricksUsageData {
 export function fetchDatabricksUsage(): Promise<DatabricksUsageData> {
   return get<DatabricksUsageData>('/api/databricks/usage')
 }
+
+export interface GovernanceByProduct {
+  product:              string
+  records:              number
+  dbus:                 number
+  est_cost:             number
+  tagged_records:       number
+  identified_records:   number
+  attributed_records:   number
+}
+
+export interface SpendByPrincipal {
+  principal: string
+  records:   number
+  dbus:      number
+  est_cost:  number
+}
+
+export interface GovernanceData {
+  byProduct:   GovernanceByProduct[]
+  byPrincipal: SpendByPrincipal[]
+  summary: {
+    totalRecords:   number
+    taggedPct:      number
+    identifiedPct:  number
+    attributedPct:  number
+  }
+}
+
+export function fetchDatabricksGovernance(): Promise<GovernanceData> {
+  return get<GovernanceData>('/api/databricks/governance')
+}

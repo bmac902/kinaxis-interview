@@ -22,6 +22,7 @@ const mock = require('./mockFallback')
 
 // ── Databricks setup ───────────────────────────────────────────────────────────
 const dbx = require('./databricksQueries')
+const { getDatabricksGovernance } = dbx
 if (dbx.isConfigured) {
   console.log(`✅  Databricks connected → ${process.env.DATABRICKS_HOST}`)
 } else {
@@ -108,6 +109,16 @@ app.get('/api/chargeback', async (req, res) => {
     console.error('/api/chargeback error:', err.message)
     try { res.json(mock.getChargeback(start, end)) }
     catch (e) { res.status(500).json({ error: err.message }) }
+  }
+})
+
+app.get('/api/databricks/governance', async (_req, res) => {
+  if (!dbx.isConfigured) return res.status(503).json({ error: 'Databricks not configured' })
+  try {
+    res.json(await getDatabricksGovernance())
+  } catch (err) {
+    console.error('/api/databricks/governance error:', err.message)
+    res.status(500).json({ error: err.message })
   }
 })
 
