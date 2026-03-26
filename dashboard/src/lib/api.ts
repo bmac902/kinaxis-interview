@@ -131,3 +131,23 @@ export interface ChargebackRow {
 export function fetchChargeback(start: string, end: string): Promise<ChargebackRow[]> {
   return get<ChargebackRow[]>(`/api/chargeback?start=${start}&end=${end}`)
 }
+
+// ── Databricks types ───────────────────────────────────────────────────────────
+
+export interface DatabricksUsageRow {
+  usage_date: string
+  product:    string
+  sku_name:   string
+  dbus:       string
+  est_cost:   string
+}
+
+export interface DatabricksUsageData {
+  rows:    DatabricksUsageRow[]
+  totals:  { dbus: number; cost: number; byProduct: Record<string, number> }
+  byDate:  Record<string, Record<string, number>>
+}
+
+export function fetchDatabricksUsage(): Promise<DatabricksUsageData> {
+  return get<DatabricksUsageData>('/api/databricks/usage')
+}

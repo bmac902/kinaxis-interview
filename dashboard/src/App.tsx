@@ -13,6 +13,7 @@ import ExportButtons from './components/ExportButtons'
 import SavingsSummaryPanel from './components/SavingsSummaryPanel'
 import ChargebackTable from './components/ChargebackTable'
 import AnomalyBanner from './components/AnomalyBanner'
+import DatabricksLiveTab from './components/DatabricksLiveTab'
 
 const fmt = (v: number) =>
   v >= 1_000_000 ? `$${(v / 1_000_000).toFixed(2)}M`
@@ -97,6 +98,7 @@ function Skeleton({ className }: { className?: string }) {
 
 // ── App ───────────────────────────────────────────────────────────────────────
 export default function App() {
+  const [activeTab,    setActiveTab]    = useState<'gcp' | 'databricks'>('gcp')
   const [startMonth, setStartMonth] = useState('2024-12')
   const [endMonth,   setEndMonth]   = useState('2025-02')
   const [drillProject, setDrillProject] = useState<string | null>(null)
@@ -144,6 +146,23 @@ export default function App() {
             </div>
           </div>
 
+          {/* Tab switcher */}
+          <div className="flex items-center gap-1 bg-slate-800/60 border border-slate-700/50 rounded-lg p-0.5">
+            {(['gcp', 'databricks'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                  activeTab === tab
+                    ? 'bg-slate-700 text-slate-100'
+                    : 'text-slate-500 hover:text-slate-300'
+                }`}
+              >
+                {tab === 'gcp' ? 'GCP Dashboard' : 'Databricks Live'}
+              </button>
+            ))}
+          </div>
+
           {/* Controls */}
           <div className="flex items-center gap-3 flex-wrap">
             {months.length > 0 && (
@@ -167,6 +186,12 @@ export default function App() {
       </div>
 
       <div className="max-w-[1600px] mx-auto px-6 py-6 space-y-5">
+        {/* Databricks tab */}
+        {activeTab === 'databricks' && <DatabricksLiveTab />}
+
+        {/* GCP tab content below — hidden when Databricks is active */}
+        {activeTab === 'gcp' && <div className="space-y-5">
+
         {/* Error banner */}
         {isError && (
           <div className="bg-red-950/40 border border-red-700/40 rounded-xl px-4 py-3 text-sm text-red-300">
@@ -260,9 +285,10 @@ export default function App() {
           </span>
           <span>Kinaxis FinOps POC · {new Date().toLocaleDateString('en-CA')}</span>
         </div>
+      </div>}
       </div>
 
-      {/* Drill-down modal */}
+      {/* Drill-down modal — outside tab wrapper so it can unmount cleanly */}
       <DrillDownModal
         project={drillProject}
         startMonth={startMonth}

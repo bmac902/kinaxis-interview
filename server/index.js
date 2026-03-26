@@ -20,6 +20,14 @@ if (USE_BQ) {
 
 const mock = require('./mockFallback')
 
+// ── Databricks setup ───────────────────────────────────────────────────────────
+const dbx = require('./databricksQueries')
+if (dbx.isConfigured) {
+  console.log(`✅  Databricks connected → ${process.env.DATABRICKS_HOST}`)
+} else {
+  console.log('⚠️  No Databricks credentials — /api/databricks/usage will return 503')
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 function defaultRange() {
   // Default: first and last available month
@@ -100,6 +108,19 @@ app.get('/api/chargeback', async (req, res) => {
     console.error('/api/chargeback error:', err.message)
     try { res.json(mock.getChargeback(start, end)) }
     catch (e) { res.status(500).json({ error: err.message }) }
+  }
+})
+
+app.get('/api/databricks/usage', async (_req, res) => {
+  if (!dbx.isConfigured) {
+    return res.status(503).json({ error: 'Databricks not configured' })
+  }
+  try {
+    const data = await dbx.getDatabricksUsage()
+    res.json(data)
+  } catch (err) {
+    console.error('/api/databricks/usage error:', err.message)
+    res.status(500).json({ error: err.message })
   }
 })
 
