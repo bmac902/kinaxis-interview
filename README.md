@@ -81,7 +81,7 @@ A production-quality multi-cloud FinOps dashboard. Live BigQuery backend for GCP
 | **Monthly Cost by Service** | Stacked bar, 9 services, MoM badge |
 | **Cost by Project** | Tagged vs untagged, click to drill down to SKU level |
 | **MoM Trend** | Total + 5 service categories |
-| **CUD Coverage** | Every project at 0%, 1-yr and 3-yr savings per project |
+| **CUD Coverage** | Compute Engine spend by project · 1-yr and 3-yr CUD savings opportunity |
 | **Databricks DBU Breakdown** | Donut by workload type, bar by project |
 | **Untagged Spend** | Surfaced and colour-coded by severity |
 | **Savings Summary** | Executive one-pager: CUD gap + Databricks waste + tagging risk |

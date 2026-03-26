@@ -122,17 +122,18 @@ async function getSummary(bq, view, startMonth, endMonth) {
     other:      Math.round(Number(r.other)),
   }))
 
-  // 4. CUD coverage (Compute Engine eligible spend, 0% coverage)
+  // 4. CUD coverage — denominator is N2-eligible (Core+Ram) spend only
   const [cudRows] = await bq.query({
     query: `
       SELECT
         SubAccountId AS project,
-        ROUND(SUM(BilledCost), 2) AS computeCost,
+        ROUND(SUM(BilledCost), 2)       AS computeCost,
         ABS(ROUND(SUM(CUD_Credits), 2)) AS cudCredits
       FROM ${view}
-      WHERE ServiceName IN ('Compute Engine','Kubernetes Engine')
+      WHERE ServiceName = 'Compute Engine'
         AND InvoiceMonth >= @startMonth AND InvoiceMonth <= @endMonth
       GROUP BY SubAccountId
+      HAVING SUM(BilledCost) > 0
       ORDER BY computeCost DESC
     `,
     params,

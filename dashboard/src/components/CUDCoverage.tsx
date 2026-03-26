@@ -47,7 +47,7 @@ export default function CUDCoverage({ data, summary }: Props) {
       <div className="flex items-start justify-between mb-3">
         <div>
           <h2 className="text-sm font-semibold text-slate-100">CUD Coverage by Project</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Compute Engine eligible spend · CUD coverage %</p>
+          <p className="text-xs text-slate-500 mt-0.5">Compute Engine spend by project · CUD savings opportunity</p>
         </div>
         <div className="text-right">
           <p className="text-xs text-red-400 font-semibold">{allZero ? '0% coverage' : 'Partial coverage'}</p>
@@ -64,7 +64,9 @@ export default function CUDCoverage({ data, summary }: Props) {
             3-yr CUD (37%): <span className="text-amber-300 font-mono">{fmtK(summary.potential3yrAnnual)}/yr</span>
           </p>
         </div>
-        <span className="text-xs bg-amber-700/30 text-amber-300 px-2 py-0.5 rounded font-medium">No CUDs purchased</span>
+        <span className="text-xs bg-amber-700/30 text-amber-300 px-2 py-0.5 rounded font-medium">
+          {allZero ? 'No CUDs purchased' : 'Partial CUD coverage'}
+        </span>
       </div>
 
       <ResponsiveContainer width="100%" height={240}>
@@ -88,8 +90,7 @@ export default function CUDCoverage({ data, summary }: Props) {
             axisLine={false} tickLine={false}
           />
           <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
-          <Bar dataKey="computeCost" name="Compute Cost" radius={[0, 3, 3, 0]}
-            label={{ position: 'right', formatter: (_v: any, entry: any) => `${entry?.payload?.cudCoverage ?? 0}%`, fill: '#ef4444', fontSize: 10 }}>
+          <Bar dataKey="computeCost" name="Compute Cost" radius={[0, 3, 3, 0]}>
             {sorted.map((d) => (
               <Cell
                 key={d.project}
@@ -101,7 +102,7 @@ export default function CUDCoverage({ data, summary }: Props) {
         </BarChart>
       </ResponsiveContainer>
       <p className="text-xs text-slate-600 mt-2">
-        Bar = eligible compute spend. Label = CUD coverage %. Hover for per-project savings potential.
+        Bar = Compute Engine spend. Hover for per-project CUD savings potential.
       </p>
     </div>
   )
