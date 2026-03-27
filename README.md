@@ -5,6 +5,38 @@
 
 ---
 
+## Executive Summary
+
+This repository demonstrates a working multi-cloud FinOps dashboard that:
+
+- Normalizes GCP and Databricks billing data into the FinOps FOCUS 1.0 standard
+- Surfaces governance signals such as tag coverage and attribution readiness
+- Identifies optimization opportunities including CUD coverage gaps and workload cost inefficiencies
+- Exports FOCUS-compliant cost data for downstream finance and reporting workflows
+
+The system uses live Databricks `system.billing.usage` data and synthetic GCP billing data to illustrate production-ready architecture and FinOps operating patterns.
+
+---
+
+## Table of Contents
+
+- [Executive Summary](#executive-summary)
+- [The Story](#the-story)
+- [What this is](#what-this-is)
+- [Architecture](#architecture)
+- [FOCUS 1.0 Transformation in BigQuery](#focus-10-transformation-in-bigquery)
+- [Features](#features)
+  - [GCP Dashboard tab](#gcp-dashboard-tab--live-bigquery)
+  - [Databricks Live tab](#databricks-live-tab--real-system-tables)
+- [Design decisions and trade-offs](#design-decisions-and-trade-offs)
+- [Drawbacks and honest limitations](#drawbacks-and-honest-limitations)
+- [What production looks like](#what-production-looks-like)
+- [The finding](#the-finding)
+- [Tech stack](#tech-stack)
+- [Running it](#running-it)
+
+---
+
 ## The Story
 
 GCP had always been my thinnest cloud. I knew that.
