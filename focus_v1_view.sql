@@ -1,7 +1,11 @@
 -- ============================================================
 -- FOCUS 1.0 View over GCP Billing Export
 -- FinOps Open Cost and Usage Specification (FOCUS) v1.0
--- Load into BigQuery after importing gcp_billing_export.csv
+--
+-- IMPORTANT: Load gcp_billing_export_fixed.csv into BigQuery (NOT gcp_billing_export.csv).
+-- The fixed file uses flat underscore column names (service_description, project_id,
+-- invoice_month, location_region) that this view depends on. The original CSV uses
+-- nested dot notation which produces a different schema and will break this view.
 --
 -- Usage:
 --   Replace `your_project.your_dataset` with your actual
