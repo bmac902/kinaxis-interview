@@ -364,6 +364,23 @@ export default function DatabricksLiveTab() {
   return (
     <div className="space-y-5">
 
+      {/* FOCUS 1.0 Export — top of tab */}
+      <div className="p-4 rounded-xl border border-blue-500/30 bg-blue-950/20">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-2 mb-0.5">
+              <p className="text-xs font-semibold text-slate-200">FOCUS 1.0 Export</p>
+              <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 uppercase tracking-wide">New</span>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Databricks billing normalised to the FinOps Open Cost &amp; Usage Specification ·
+              adapted from <span className="font-mono">csyvenky-finops/fox25</span>
+            </p>
+          </div>
+          <FocusExportButton />
+        </div>
+      </div>
+
       {/* Multi-Cloud Overview */}
       {multicloud && <MultiCloudOverview data={multicloud} />}
 
@@ -633,20 +650,6 @@ export default function DatabricksLiveTab() {
             </table>
           </div>
         )}
-      </div>
-
-      {/* FOCUS 1.0 Export */}
-      <div className="mx-4 mb-4 p-4 rounded-xl border border-slate-700/60 bg-slate-800/30">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold text-slate-200">FOCUS 1.0 Export</p>
-            <p className="text-[11px] text-slate-500 mt-0.5">
-              Databricks billing normalised to the FinOps Open Cost &amp; Usage Specification ·
-              adapted from <span className="font-mono">csyvenky-finops/fox25</span>
-            </p>
-          </div>
-          <FocusExportButton />
-        </div>
       </div>
 
       {/* Footer */}
