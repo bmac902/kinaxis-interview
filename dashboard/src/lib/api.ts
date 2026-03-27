@@ -211,3 +211,44 @@ export interface MultiCloudData {
 export function fetchMultiCloudOverview(): Promise<MultiCloudData> {
   return get<MultiCloudData>('/api/databricks/multicloud')
 }
+
+// ── Databricks FOCUS 1.0 export ────────────────────────────────────────────────
+
+export interface DatabricksFocusRow {
+  BillingAccountId:    string
+  BillingCurrency:     string
+  BillingPeriodStart:  string
+  BillingPeriodEnd:    string
+  ChargePeriodStart:   string
+  ChargePeriodEnd:     string
+  ChargeCategory:      string
+  ChargeFrequency:     string
+  ChargeDescription:   string
+  BilledCost:          number
+  ListCost:            number
+  EffectiveCost:       number
+  ContractedCost:      number
+  ListUnitPrice:       number
+  ContractedUnitPrice: number
+  ConsumedQuantity:    number
+  ConsumedUnit:        string
+  PricingQuantity:     number
+  PricingUnit:         string
+  PricingCategory:     string
+  SkuId:               string
+  ServiceName:         string
+  ServiceCategory:     string
+  ProviderName:        string
+  PublisherName:       string
+  InvoiceIssuerName:   string
+  SubAccountId:        string | null
+  SubAccountName:      string | null
+  ResourceId:          string | null
+  ResourceName:        string | null
+  Tags:                Record<string, string>
+  RunAs:               string | null
+}
+
+export function fetchDatabricksFocus(): Promise<DatabricksFocusRow[]> {
+  return get<DatabricksFocusRow[]>('/api/databricks/focus')
+}

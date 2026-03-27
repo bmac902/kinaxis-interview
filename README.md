@@ -191,7 +191,7 @@ flowchart TD
 
 ### Databricks Live tab — real system tables
 
-Live data pulled directly from `system.billing.usage` via the Databricks Statement Execution API.
+Live data pulled directly from `system.billing.usage` via the Databricks Statement Execution API. Includes a **FOCUS 1.0 export** — a SQL transformation over `system.billing.usage` + `system.billing.list_prices` that produces all standard FOCUS cost fields as a downloadable CSV, adapted from [csyvenky-finops/fox25](https://github.com/csyvenky-finops/fox25).
 
 | Panel | What it shows |
 |---|---|
@@ -205,6 +205,7 @@ Live data pulled directly from `system.billing.usage` via the Databricks Stateme
 | **Workload Classification** | HIGH/MEDIUM/LOW confidence per product type |
 | **Spend by Principal** | Anonymous SQL spend flagged as governance gap |
 | **Multi-Cloud Overview** | GCP + Databricks spend from one SQL warehouse |
+| **FOCUS 1.0 Export** | Download Databricks billing as a FOCUS-compliant CSV (adapted from fox25) |
 
 ---
 

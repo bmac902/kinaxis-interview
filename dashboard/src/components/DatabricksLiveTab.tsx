@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchDatabricksUsage, fetchDatabricksGovernance, fetchMultiCloudOverview } from '../lib/api'
+import { fetchDatabricksUsage, fetchDatabricksGovernance, fetchMultiCloudOverview, fetchDatabricksFocus } from '../lib/api'
+import type { DatabricksFocusRow } from '../lib/api'
 import type { DatabricksUsageData, GovernanceData, MultiCloudData } from '../lib/api'
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer,
@@ -200,6 +201,66 @@ function MultiCloudOverview({ data }: { data: MultiCloudData }) {
           </ResponsiveContainer>
         </div>
       )}
+    </div>
+  )
+}
+
+// ── FOCUS 1.0 Export Button ───────────────────────────────────────────────────
+
+function buildFocusCsv(rows: DatabricksFocusRow[]): string {
+  if (rows.length === 0) return ''
+  const headers = Object.keys(rows[0]) as (keyof DatabricksFocusRow)[]
+  const escape = (v: unknown) => {
+    const s = v === null || v === undefined ? '' : typeof v === 'object' ? JSON.stringify(v) : String(v)
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s
+  }
+  return [
+    headers.join(','),
+    ...rows.map(r => headers.map(h => escape(r[h])).join(','))
+  ].join('\n')
+}
+
+function FocusExportButton() {
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState<string | null>(null)
+
+  async function handleDownload() {
+    setLoading(true)
+    setError(null)
+    try {
+      const rows = await fetchDatabricksFocus()
+      const csv  = buildFocusCsv(rows)
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href     = url
+      a.download = `databricks-focus-1.0-${new Date().toISOString().slice(0, 10)}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setError('Export failed — is the server running?')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-end gap-1">
+      <button
+        onClick={handleDownload}
+        disabled={loading}
+        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-slate-100 border border-slate-700 transition-colors disabled:opacity-40 whitespace-nowrap"
+      >
+        {loading ? (
+          <div className="w-3.5 h-3.5 border-2 border-blue-400 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+        )}
+        {loading ? 'Exporting…' : 'Download FOCUS 1.0 CSV'}
+      </button>
+      {error && <p className="text-[10px] text-red-400">{error}</p>}
     </div>
   )
 }
@@ -572,6 +633,20 @@ export default function DatabricksLiveTab() {
             </table>
           </div>
         )}
+      </div>
+
+      {/* FOCUS 1.0 Export */}
+      <div className="mx-4 mb-4 p-4 rounded-xl border border-slate-700/60 bg-slate-800/30">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-xs font-semibold text-slate-200">FOCUS 1.0 Export</p>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Databricks billing normalised to the FinOps Open Cost &amp; Usage Specification ·
+              adapted from <span className="font-mono">csyvenky-finops/fox25</span>
+            </p>
+          </div>
+          <FocusExportButton />
+        </div>
       </div>
 
       {/* Footer */}

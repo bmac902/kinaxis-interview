@@ -252,4 +252,122 @@ async function getMultiCloudOverview() {
   }
 }
 
-module.exports = { getDatabricksUsage, getDatabricksGovernance, getMultiCloudOverview, isConfigured: !!(HOST && TOKEN && WAREHOUSE) }
+// ── Databricks → FOCUS 1.0 Export ─────────────────────────────────────────────
+// Inspired by csyvenky-finops/fox25 (FinOps X 2025), adapted for GCP Databricks.
+// Joins system.billing.usage with system.billing.list_prices to produce all
+// required FOCUS 1.0 cost fields from native Databricks billing data.
+
+const SQL_FOCUS = `
+SELECT
+  -- ── Billing account ────────────────────────────────────────
+  u.account_id                                                          AS BillingAccountId,
+  u.account_id                                                          AS BillingAccountName,
+  'USD'                                                                 AS BillingCurrency,
+
+  -- ── Billing & charge period ────────────────────────────────
+  DATE_TRUNC('MONTH', CAST(u.usage_date AS DATE))                       AS BillingPeriodStart,
+  LAST_DAY(CAST(u.usage_date AS DATE))                                  AS BillingPeriodEnd,
+  u.usage_start_time                                                    AS ChargePeriodStart,
+  u.usage_end_time                                                      AS ChargePeriodEnd,
+
+  -- ── Charge metadata ────────────────────────────────────────
+  'Usage'                                                               AS ChargeCategory,
+  'Usage-Based'                                                         AS ChargeFrequency,
+  u.usage_type                                                          AS ChargeDescription,
+
+  -- ── Cost fields (list_price × quantity) ───────────────────
+  -- No commitment discounts on GCP free tier; all four cost columns converge.
+  ROUND(u.usage_quantity * COALESCE(p.pricing.default, 0), 6)          AS BilledCost,
+  ROUND(u.usage_quantity * COALESCE(p.pricing.default, 0), 6)          AS ListCost,
+  ROUND(u.usage_quantity * COALESCE(p.pricing.default, 0), 6)          AS EffectiveCost,
+  ROUND(u.usage_quantity * COALESCE(p.pricing.default, 0), 6)          AS ContractedCost,
+  CAST(COALESCE(p.pricing.default, 0) AS DECIMAL(38,10))               AS ListUnitPrice,
+  CAST(COALESCE(p.pricing.default, 0) AS DECIMAL(38,10))               AS ContractedUnitPrice,
+
+  -- ── Consumption ────────────────────────────────────────────
+  u.usage_quantity                                                      AS ConsumedQuantity,
+  u.usage_unit                                                          AS ConsumedUnit,
+  u.usage_quantity                                                      AS PricingQuantity,
+  u.usage_unit                                                          AS PricingUnit,
+  'Standard'                                                            AS PricingCategory,
+
+  -- ── SKU & service ──────────────────────────────────────────
+  u.sku_name                                                            AS SkuId,
+  u.billing_origin_product || ' | ' || u.sku_name                      AS ServiceName,
+  'Analytics'                                                           AS ServiceCategory,
+
+  -- ── Provider ───────────────────────────────────────────────
+  'Google Cloud'                                                        AS ProviderName,
+  'Databricks'                                                          AS PublisherName,
+  'Databricks'                                                          AS InvoiceIssuerName,
+
+  -- ── Sub-account (workspace) ────────────────────────────────
+  CASE WHEN u.workspace_id IS NOT NULL AND TRIM(u.workspace_id) <> ''
+       THEN u.workspace_id ELSE NULL END                                AS SubAccountId,
+  CASE WHEN u.workspace_id IS NOT NULL AND TRIM(u.workspace_id) <> ''
+       THEN u.workspace_id ELSE NULL END                                AS SubAccountName,
+
+  -- ── Resource (cluster / warehouse / job — whichever is set) ──
+  COALESCE(
+    u.usage_metadata.cluster_id,
+    u.usage_metadata.warehouse_id,
+    CAST(u.usage_metadata.job_id AS STRING)
+  )                                                                     AS ResourceId,
+  COALESCE(
+    u.usage_metadata.cluster_id,
+    u.usage_metadata.warehouse_id,
+    u.usage_metadata.job_name
+  )                                                                     AS ResourceName,
+
+  -- ── Tags & identity ────────────────────────────────────────
+  COALESCE(u.custom_tags, CAST(map() AS MAP<STRING,STRING>))            AS Tags,
+  u.identity_metadata.run_as                                            AS RunAs
+
+FROM system.billing.usage u
+LEFT JOIN system.billing.list_prices p
+  ON  u.sku_name = p.sku_name
+  AND u.usage_start_time BETWEEN p.price_start_time
+      AND COALESCE(p.price_end_time, CURRENT_TIMESTAMP())
+WHERE u.usage_unit = 'DBU'
+ORDER BY u.usage_start_time DESC
+`
+
+async function getDatabricksFocus() {
+  const rows = await runStatement(SQL_FOCUS)
+  return rows.map(r => ({
+    BillingAccountId:    r.BillingAccountId,
+    BillingCurrency:     r.BillingCurrency,
+    BillingPeriodStart:  r.BillingPeriodStart,
+    BillingPeriodEnd:    r.BillingPeriodEnd,
+    ChargePeriodStart:   r.ChargePeriodStart,
+    ChargePeriodEnd:     r.ChargePeriodEnd,
+    ChargeCategory:      r.ChargeCategory,
+    ChargeFrequency:     r.ChargeFrequency,
+    ChargeDescription:   r.ChargeDescription,
+    BilledCost:          parseFloat(r.BilledCost)          || 0,
+    ListCost:            parseFloat(r.ListCost)            || 0,
+    EffectiveCost:       parseFloat(r.EffectiveCost)       || 0,
+    ContractedCost:      parseFloat(r.ContractedCost)      || 0,
+    ListUnitPrice:       parseFloat(r.ListUnitPrice)       || 0,
+    ContractedUnitPrice: parseFloat(r.ContractedUnitPrice) || 0,
+    ConsumedQuantity:    parseFloat(r.ConsumedQuantity)    || 0,
+    ConsumedUnit:        r.ConsumedUnit,
+    PricingQuantity:     parseFloat(r.PricingQuantity)     || 0,
+    PricingUnit:         r.PricingUnit,
+    PricingCategory:     r.PricingCategory,
+    SkuId:               r.SkuId,
+    ServiceName:         r.ServiceName,
+    ServiceCategory:     r.ServiceCategory,
+    ProviderName:        r.ProviderName,
+    PublisherName:       r.PublisherName,
+    InvoiceIssuerName:   r.InvoiceIssuerName,
+    SubAccountId:        r.SubAccountId,
+    SubAccountName:      r.SubAccountName,
+    ResourceId:          r.ResourceId,
+    ResourceName:        r.ResourceName,
+    Tags:                r.Tags,
+    RunAs:               r.RunAs,
+  }))
+}
+
+module.exports = { getDatabricksUsage, getDatabricksGovernance, getMultiCloudOverview, getDatabricksFocus, isConfigured: !!(HOST && TOKEN && WAREHOUSE) }
