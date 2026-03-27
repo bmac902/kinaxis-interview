@@ -103,6 +103,61 @@ flowchart TD
 
 ---
 
+## FOCUS 1.0 Transformation in BigQuery
+
+GCP's native billing export uses vendor-specific column names and stores credits as a JSON array. The `focus_v1` view normalises this into FOCUS 1.0 in two CTEs before the final SELECT.
+
+```mermaid
+flowchart TD
+    RAW["gcp_billing_export\nservice_description · sku_description · project_id\ncost · credits JSON · usage_start_time · invoice_month"]
+
+    subgraph CTE1["CTE: billing"]
+        J1["JSON_QUERY_ARRAY(credits) → credits_array"]
+        J2["JSON_QUERY_ARRAY(labels)  → labels_array"]
+    end
+
+    subgraph CTE2["CTE: credits_unnested"]
+        C1["SUM(amount) → total_credits"]
+        C2["SUM(amount WHERE type IN\n  COMMITTED_USAGE_DISCOUNT\n  COMMITTED_USAGE_DISCOUNT_DOLLAR_BASE)\n→ cud_credits"]
+        C3["SUM(amount WHERE type =\n  SUSTAINED_USE_DISCOUNT)\n→ sud_credits"]
+    end
+
+    subgraph FOCUS["SELECT — FOCUS 1.0 output"]
+        F1["cost + total_credits → BilledCost / EffectiveCost"]
+        F2["cost              → ListCost"]
+        F3["cost + cud_credits → ContractedCost"]
+        F4["CASE service_description → ServiceCategory"]
+        F5["sku_description → ChargeDescription · SkuId"]
+        F6["project_id → SubAccountId · SubAccountName"]
+        F7["usage_start_time → ChargePeriodStart\n+1 DAY  → ChargePeriodEnd"]
+        F8["cud_credits → CUD_Credits\nsud_credits → SUD_Credits"]
+    end
+
+    VIEW["gcp_finops_poc.focus_v1\n(queried by Express proxy)"]
+
+    RAW --> CTE1 --> CTE2 --> FOCUS --> VIEW
+```
+
+### Field mapping
+
+| GCP Billing Export | FOCUS 1.0 Field | Transformation |
+|---|---|---|
+| `cost` | `ListCost` | Direct — list price before credits |
+| `cost + total_credits` | `BilledCost`, `EffectiveCost` | Credits are negative amounts — addition applies them |
+| `cost + cud_credits` | `ContractedCost` | CUD savings isolated from total credits |
+| `credits[]` JSON array | `CUD_Credits`, `SUD_Credits` | Unnested and filtered by `type` field |
+| `service_description` | `ServiceName` | Direct rename |
+| `service_description` | `ServiceCategory` | `CASE` mapping to FOCUS taxonomy (Compute / Storage / Analytics / …) |
+| `sku_description` | `ChargeDescription`, `SkuId` | Direct rename |
+| `project_id` | `SubAccountId`, `SubAccountName` | GCP Projects map to FOCUS sub-accounts |
+| `usage_start_time` | `ChargePeriodStart` / `ChargePeriodEnd` | End = Start + 1 day (GCP exports daily rows) |
+| `location_region` | `RegionId`, `RegionName` | Direct rename |
+| `project_labels` | `Tags` | Raw JSON preserved — parsed at query time |
+| *(constant)* | `ProviderName`, `PublisherName` | `'Google Cloud'` — no source field |
+| *(constant)* | `ChargeCategory`, `ChargeFrequency` | `'Usage'` / `'Usage-Based'` |
+
+---
+
 ![GCP FinOps Dashboard — GCP tab](docs/screenshots/dashboard-top.png)
 
 
