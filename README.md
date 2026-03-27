@@ -322,9 +322,10 @@ GCP Billing Export
 Databricks system.billing.usage
     → Already in Unity Catalog, no pipeline needed
 
-AWS Cost & Usage Report (future)
-    → S3 → Auto Loader → Delta table
-    → Unity Catalog: aws_billing.cur_v1
+Azure (future) — via FinOps Hub (FOCUS 1.2)
+    → Azure Data Lake Storage Gen2 export
+    → Databricks Auto Loader → Delta table
+    → Unity Catalog: azure_billing.focus_v2
 
 Dashboard
     → Databricks SQL warehouse (single endpoint)
