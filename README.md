@@ -115,6 +115,7 @@ flowchart TD
             SysUsage["system.billing.usage\n(live · authoritative)"]
             GCPDelta["workspace.default.gcp_billing_export\n(Delta table · CSV import)"]
         end
+        FOCUSExport["FOCUS 1.0 Export\nusage JOIN list_prices\n→ BilledCost · EffectiveCost · SubAccountId\n→ Tags · ChargeDescription · …\nDownloadable CSV · adapted from fox25"]
     end
 
     GCPTab -- "fetch /api/summary\n/api/project/:id/skus" --> Routes
@@ -126,6 +127,7 @@ flowchart TD
 
     Routes -- "DATABRICKS_TOKEN set" --> SEA
     SEA --> UC
+    SysUsage --> FOCUSExport
 
     GCPDelta -. "point-in-time CSV import\n(Auto Loader in production)" .-> GCPDelta
     SysUsage -. "always live — no pipeline needed" .-> SysUsage
