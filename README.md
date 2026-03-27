@@ -56,6 +56,52 @@ The Multi-Cloud Overview panel demonstrates that model directly. A single SQL wa
 
 A production-quality multi-cloud FinOps dashboard. Live BigQuery backend for GCP. Live Databricks `system.billing.usage` for Databricks. FOCUS 1.0 compliant. Executive-ready exports. Multi-cloud overview powered by Databricks Unity Catalog.
 
+---
+
+## Architecture
+
+```mermaid
+flowchart TD
+    subgraph FE["Frontend (React + TypeScript + Vite)"]
+        GCPTab["GCP Dashboard Tab"]
+        DBTab["Databricks Live Tab"]
+    end
+
+    subgraph Proxy["Express Proxy — localhost:3001"]
+        Routes["API Routes\n/api/summary · /api/project/:id/skus\n/api/databricks/* · /api/multicloud"]
+        Fallback["Mock Fallback\n(auto-detects missing credentials)"]
+    end
+
+    subgraph GCP["Google Cloud Platform"]
+        BQ["BigQuery\ngcp_finops_poc.focus_v1\nFOCUS 1.0 view"]
+        RawTable["gcp_billing_export\n22K synthetic rows"]
+    end
+
+    subgraph DB["Databricks"]
+        SEA["Statement Execution API"]
+        subgraph UC["Unity Catalog"]
+            SysUsage["system.billing.usage\n(live · authoritative)"]
+            GCPDelta["workspace.default.gcp_billing_export\n(Delta table · CSV import)"]
+        end
+    end
+
+    GCPTab -- "fetch /api/summary\n/api/project/:id/skus" --> Routes
+    DBTab  -- "fetch /api/databricks/*\n/api/multicloud" --> Routes
+
+    Routes -- "GOOGLE_APPLICATION_CREDENTIALS set" --> BQ
+    Routes -- "no credentials"                       --> Fallback
+    BQ --> RawTable
+
+    Routes -- "DATABRICKS_TOKEN set" --> SEA
+    SEA --> UC
+
+    GCPDelta -. "point-in-time CSV import\n(Auto Loader in production)" .-> GCPDelta
+    SysUsage -. "always live — no pipeline needed" .-> SysUsage
+```
+
+> The Express proxy keeps all credentials server-side and provides the mock fallback. The Databricks Unity Catalog layer is what makes the Multi-Cloud Overview possible — one SQL warehouse querying both GCP and Databricks billing data.
+
+---
 
 ![GCP FinOps Dashboard — GCP tab](docs/screenshots/dashboard-top.png)
 
